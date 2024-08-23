@@ -19,6 +19,8 @@
 </head>
 
 <body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -27,24 +29,17 @@
         import { FontLoader } from 'three/addons/loaders/FontLoader.js';
         import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
-
-        
-
         let mixer = null;
         let joinSpringManager = null;
         let currentVrm = undefined;
         let animationClip;
-        // let clock = new THREE.Clock();
         let mapAction = new Map();
         let currentBvhFilePath = '';
 
-        
-        // const mapBVHFile = new Map();
         const imageFile = new Map();
         var scene = new THREE.Scene();
         var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10);
-        camera.position.set(0, 1.5, -1.0); // Adjusted to focus on the upper bod
-        // camera.position.set(0, 1.3, -1.45);
+        camera.position.set(0, 1.5, -1.0); // Adjusted to focus on the upper body
         camera.rotation.set(0, Math.PI, 0);
 
         let now = new Date(new Date().toUTCString());
@@ -56,41 +51,33 @@
 
         const targetAspect = document.body.clientWidth / document.body.clientHeight;
 
-
         const light = new THREE.DirectionalLight(0xffffff);
         light.position.set(-1, 1, -1).normalize();
         scene.add(light);
-        // scene.background = new THREE.Color(0x202020); // Set a background color
 
         const imgLoader = new THREE.TextureLoader();
         imgLoader.load('img/bg.jpg', function(texture){
             scene.background = texture;
         });
 
-        // Create the rectangle geometry with desired width and height
         const rectWidth = 2;  // Width of the rectangle
         const rectHeight = 2; // Height of the rectangle
         const rectGeometry = new THREE.PlaneGeometry(rectWidth, rectHeight);
 
-        // Create a canvas for the gradient background
         const canvas = document.createElement('canvas');
         canvas.width = 512; // Adjust size as needed
         canvas.height = 512; // Adjust size as needed
         const context = canvas.getContext('2d');
 
-        // Create a gradient
         const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
         gradient.addColorStop(0, '#ff6f61'); // Start color (coral)
         gradient.addColorStop(1, '#ffb74d'); // End color (orange)
 
-        // Fill the canvas with the gradient
         context.fillStyle = gradient;
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Create a texture from the canvas
         const texture = new THREE.CanvasTexture(canvas);
 
-        // Create a material with the texture and set transparency
         const gradientMaterial = new THREE.MeshBasicMaterial({
             map: texture,
             side: THREE.DoubleSide, // Render both sides of the plane
@@ -98,97 +85,124 @@
             opacity: 0.8 // Set opacity to make the rectangle slightly transparent
         });
 
-        // Create the rectangle mesh with gradient material
         const rectMesh = new THREE.Mesh(rectGeometry, gradientMaterial);
 
-        // Create a parent group to hold the rectangle
         const rectGroup = new THREE.Group();
         rectGroup.add(rectMesh);
 
-        // Position the rectangle
         rectGroup.position.set(1, 1.5, 3); // Adjust the position as needed
 
-        // Add the group to the scene
         scene.add(rectGroup);
 
+        let textMeshes = [];
 
+        function addTextToBox(text, positionY, delay) {
+            const fontLoader = new FontLoader();
 
+            fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+                const textGeometry = new TextGeometry(text, {
+                    font: font,
+                    size: 0.02, // Adjust the size of the text
+                    height: 0.003, // Reduce the thickness of the text
+                    curveSegments: 12, // Smoothness of the curves
+                    bevelEnabled: true,
+                    bevelThickness: 0.00003, // Reduce the thickness of the bevel
+                    bevelSize: 0.0001,
+                    bevelOffset: 0,
+                    bevelSegments: 3
+                });
 
+                const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Change the color here
+                const textMesh = new THREE.Mesh(textGeometry, textMaterial);
 
+                textMesh.position.set(1.2, 1 + positionY/10, 1.5); // Adjust these values as needed
+                textMesh.rotation.y = Math.PI; // Rotate around the X-axis by 180 degrees
 
-
-
-        
-
-        const fontLoader = new FontLoader();
-
-        fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
-            const textGeometry = new TextGeometry('Helo', {
-                font: font,
-                size: 0.06, // Adjust the size of the text
-                height: 0.003, // Reduce the thickness of the text
-                curveSegments: 12, // Smoothness of the curves
-                bevelEnabled: true,
-                bevelThickness: 0.00003, // Reduce the thickness of the bevel
-                bevelSize: 0.0001,
-                bevelOffset: 0,
-                bevelSegments: 3
+                scene.add(textMesh);
+                textMeshes.push(textMesh);
+                return textMesh;
             });
+        }
 
-            const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // Change the color here
-            const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        let comments = [
+            "Abebe: This is a comment."
+        ];
 
-            textMesh.position.set(1.2, 2, 1.5); // Adjust these values as needed
-            textMesh.rotation.y = Math.PI; // Rotate around the X-axis by 180 degrees
+        function updateTextBox() {
+            textMeshes.forEach(mesh => scene.remove(mesh));
+            textMeshes = [];
 
-            scene.add(textMesh);
-        });
+            comments.forEach((comment, index) => {
+                addTextToBox(comment, index * 0.1, 0).then(mesh => textMeshes.push(mesh));
+            });
+        }
 
+        function addComment(newComment) {
+            if (comments.length >= 5) {
+                let removedMesh = textMeshes.shift();
+                if (removedMesh) scene.remove(removedMesh);
+                comments.shift();
+            }
+            comments.push(newComment);
+            updateTextBox();
+        }
 
-     
+        const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
 
+        eventSource.onmessage = (event) => {
+            try {
+                let rawData = event.data;
+
+                rawData = rawData.replace(/'/g, '"');
+
+                const data = JSON.parse(rawData);
+
+                console.log('Received comment:', data);
+
+                const author = data.author;
+                const message = data.message;
+
+                const formattedComment = `${author}: ${message}`;
+
+                addComment(formattedComment);
+            } catch (error) {
+                console.error('Error processing comment:', error);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error('EventSource failed:', error);
+        };
+
+        setInterval(updateTextBox, 2000);
 
         loadVrm();
         function loadVrm() {
 
             const loader = new GLTFLoader();
 
-            // Install GLTFLoader plugin
             loader.register((parser) => {
                 return new VRMLoaderPlugin(parser);
             });
 
             loader.load(
                 `/models/Sena_Saotome.vrm`,
-                // `/models/aichan.vrm`,
-
-                // called when the resource is loaded
                 (gltf) => {
                     const vrm = gltf.userData.vrm;
-                    // calling these functions greatly improves the performance
                     VRMUtils.removeUnnecessaryVertices(gltf.scene);
                     VRMUtils.removeUnnecessaryJoints(gltf.scene);
-                    // Disable frustum culling
                     vrm.scene.traverse((obj) => {
                         obj.frustumCulled = false;
                     });
                     scene.add(vrm.scene);
                     currentVrm = vrm;
 
-                    vrm.scene.position.set(-0.8, -0.2, 1); // Lower the model further on the Y-axis to focus even more on the upper body
+                    vrm.scene.position.set(-0.8, -1.1, 1);
                     vrm.scene.rotation.y = - Math.PI / 6;
-                    vrm.scene.scale.set(1.5, 1.5, 1.5); // Maintain the zoom level
-                    
+                    vrm.scene.scale.set(2, 2, 2);
 
-
-                    console.log(currentVrm.humanoid.humanBones);
                     joinSpringManager = vrm.springBoneManager;
-                    console.log(joinSpringManager);
-                    console.log(currentVrm);
 
-                    var listSkinFaceMesh = [];
-
-                    currentVrm.expressionManager.setValue("test", 1);
                     if (currentVrm) {
                         applyAnimation('/bvh/talking1.bvh', 'waiting');
                     }
@@ -196,12 +210,8 @@
                         console.log('success');
                     }, 3000);
                 },
-
-                // called while loading is progressing
                 (progress) => { },
-
-                // called when loading has errors
-                (error) => console.error(error),
+                (error) => console.error(error)
             );
         }
 
@@ -213,7 +223,6 @@
         let currentAction;
         let pendingAnimation = null;
 
-
         function applyAnimation(bvhFilePath, animationName ) {      
             if (!currentVrm) return; // VRMがロードされていなければ何もしない
             currentVrm.lastTimeUpdateMotion = 0;
@@ -221,7 +230,6 @@
             currentVrm.isFading = false;
             currentVrm.currentAction = null;
             currentVrm.pendingAnimation = null;
-            // var mixer = currentVrm.mixer;
             if (currentVrm.currentBvhFilePath === bvhFilePath) return;
             console.log(currentVrm.currentBvhFilePath);
             if (mapAction.get(bvhFilePath)) {
@@ -230,8 +238,6 @@
                     mixer = new THREE.AnimationMixer(currentVrm.scene);
                     currentVrm.mixer = mixer;
                 }
-                // const startAction = mapAction.get(currentBvhFilePath)
-                // const endAction = mapAction.get(bvhFilePath);
                 if (currentVrm.isFading || currentVrm.loading) {
 
                     currentVrm.pendingAnimation = bvhFilePath;
@@ -248,8 +254,6 @@
                         let track = result.clip.tracks[i];
                         var value = [];
                         var extension = track.name.split('.').pop();
-                        // console.log(track.name);
-                        // console.log(extension);
                         let map = new Map(Object.entries(currentVrm.humanoid.humanBones));
                         var exists = Array.from(map.keys()).find(obj => { 
                             return track.name.toLowerCase().includes(obj.toLowerCase())});
@@ -286,9 +290,6 @@
                             track.times = track.times.subarray(1);
                         }
                     }
-                    // console.log(result.clip);
-                    // console.log(value.map((e)=> e.name));
-                    // AnimationMixerの生成
                     if (!mixer) {
                         mixer = new THREE.AnimationMixer(currentVrm.scene);
                         currentVrm.mixer = mixer;
@@ -297,7 +298,7 @@
                     currentVrm.animationClip.name = bvhFilePath;
                     currentVrm.animationClip.duration = calculateDuration(result.clip);
                     console.log('duration', currentVrm.animationClip.duration);
-                   
+
                     currentVrm.loading = false;
                     if (currentVrm.isFading || currentVrm.loading) {
 
@@ -307,7 +308,6 @@
                     mapAction.set(bvhFilePath, currentVrm.animationClip);
 
                     synchronizeCrossFade(bvhFilePath, 1, currentVrm);
-                  
                 });
             }
             currentVrm.currentBvhFilePath = bvhFilePath;
@@ -329,7 +329,6 @@
             return index;
         }
 
-
         function synchronizeCrossFade(bvhFilePath, duration) {
             var currentDate = new Date().getTime();
             if ((currentDate - lastTimeUpdateMotion) < 1000) {
@@ -337,7 +336,6 @@
             }
             lastTimeUpdateMotion = currentDate;
             console.log(new Date().toISOString());
-            // console.log("startAction", startAction);
             const loadAndApply = (clip) => {
                 if (currentAction) {
                     currentAction.fadeOut(duration);
@@ -370,7 +368,6 @@
             if (mapAction.has(bvhFilePath)) {
                 loadAndApply(mapAction.get(bvhFilePath));
             }
-
         }
 
         function isSameType(pendingAnimation) {
@@ -389,7 +386,6 @@
         animate();
         function animate() {
 
-
             setTimeout(() => {
                 animate();
             }, 0.02 * 1000)
@@ -403,7 +399,6 @@
             if (currentVrm && currentVrm.expressionManager) {
                 currentVrm.expressionManager.update();
             }
-
 
         }
     </script>

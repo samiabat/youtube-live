@@ -3,10 +3,24 @@ import asyncio
 from googleapiclient.discovery import build
 import time
 import io
+from fastapi.responses import StreamingResponse
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+app = FastAPI()
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
+
 
 # Replace with your own API key
-API_KEY = "AIzaSyCp7i5IHB5dlBTM3Nz3cysqRPEq9czhv0Y"
-VIDEO_ID = "U6Sl9v0Z8_E"  # Replace with the video ID of your live stream
+API_KEY = "AIzaSyCcQepQCmN1Umjo4LotvLt51QX1LJatH-4"
+VIDEO_ID = "-mvUkiILTqI"  # Replace with the video ID of your live stream
 
 CHATBOT_API_URL = "http://18.176.84.155:5000/live"
 SPEECH_API_URL = "http://13.114.188.215:5000/voice"
@@ -100,10 +114,10 @@ async def play_audio(audio_data):
     await asyncio.sleep(2)  # Simulate the delay for playing the audio
 
 # Asynchronous function to fetch live chat messages in real-time
+# Asynchronous generator function to fetch live chat messages in real-time
 async def get_live_chat_comments(api_key, live_chat_id):
     youtube = build('youtube', 'v3', developerKey=api_key)
     next_page_token = None
-    last_response_time = 0  # Track the last response time
 
     async with aiohttp.ClientSession() as session:
         while True:
@@ -120,35 +134,19 @@ async def get_live_chat_comments(api_key, live_chat_id):
                 live_chat_response = live_chat_request.execute()
 
                 if 'items' in live_chat_response:
-                    tasks = []
-                    current_time = asyncio.get_event_loop().time()
                     for item in live_chat_response['items']:
                         author = item['authorDetails']['displayName']
                         message = item['snippet']['displayMessage']
-                        print(f"{author}: {message}")
-
-                        # Check if enough time has passed since the last response
-                        if current_time - last_response_time >= 120:  # 2 minutes
-                            # Create a task for handling each comment (chatbot + speech)
-                            tasks.append(handle_comment(session, author, message))
-                            last_response_time = current_time  # Update the last response time
-                        else:
-                            print("Waiting to avoid spamming too quickly...")
-
-                    # Run all the tasks concurrently
-                    await asyncio.gather(*tasks)
+                        yield {"author": author, "message": message}
 
                 next_page_token = live_chat_response.get('nextPageToken', None)
                 polling_interval = int(live_chat_response.get('pollingIntervalMillis', 20000)) / 1000
-                print(f"Waiting for {polling_interval} seconds before fetching new messages...\n")
                 await asyncio.sleep(polling_interval)
 
             except Exception as e:
-                print("An error occurred while fetching live chat messages.")
-                print(f"Error details: {e}")
+                print(f"An error occurred while fetching live chat messages: {e}")
                 print("Retrying in 10 seconds...\n")
                 await asyncio.sleep(10)
-
 # Asynchronous function to handle each comment (chatbot + speech)
 async def handle_comment(session, author, message):
     # Send the comment to the chatbot API
@@ -162,12 +160,29 @@ async def handle_comment(session, author, message):
         # Wait for a while before processing the next comment
         await asyncio.sleep(60)  # Wait for 2 minutes before processing the next comment
 
-if __name__ == "__main__":
-    # Get the liveChatId using the video ID
-    live_chat_id = get_live_chat_id(API_KEY, VIDEO_ID)
+# if __name__ == "__main__":
+#     # Get the liveChatId using the video ID
+#     live_chat_id = get_live_chat_id(API_KEY, VIDEO_ID)
 
-    if live_chat_id:
-        print(f"Live Chat ID found: {live_chat_id}")
-        asyncio.run(get_live_chat_comments(API_KEY, live_chat_id))
-    else:
-        print("The video is not currently live or has no active chat.")
+#     if live_chat_id:
+#         print(f"Live Chat ID found: {live_chat_id}")
+#         asyncio.run(get_live_chat_comments(API_KEY, live_chat_id))
+#     else:
+#         print("The video is not currently live or has no active chat.")
+# FastAPI endpoint to stream raw user comments in real-time
+@app.get("/stream-comments-only")
+async def stream_comments_only():
+    live_chat_id = get_live_chat_id(API_KEY, VIDEO_ID)
+    if not live_chat_id:
+        return {"error": "The video is not currently live or has no active chat."}
+
+    async def comment_stream_only():
+        # Now the generator function is called correctly
+        async for comment in get_live_chat_comments(API_KEY, live_chat_id):
+            yield f"data: {comment}\n\n"  # Stream comment in Server-Sent Events format
+
+    return StreamingResponse(comment_stream_only(), media_type="text/event-stream")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
