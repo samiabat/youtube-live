@@ -27,6 +27,9 @@
         import { FontLoader } from 'three/addons/loaders/FontLoader.js';
         import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
+
+        
+
         let mixer = null;
         let joinSpringManager = null;
         let currentVrm = undefined;
@@ -63,7 +66,54 @@
         imgLoader.load('img/bg.jpg', function(texture){
             scene.background = texture;
         });
-        
+
+        // Create the rectangle geometry with desired width and height
+        const rectWidth = 2;  // Width of the rectangle
+        const rectHeight = 2; // Height of the rectangle
+        const rectGeometry = new THREE.PlaneGeometry(rectWidth, rectHeight);
+
+        // Create a canvas for the gradient background
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; // Adjust size as needed
+        canvas.height = 512; // Adjust size as needed
+        const context = canvas.getContext('2d');
+
+        // Create a gradient
+        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#ff6f61'); // Start color (coral)
+        gradient.addColorStop(1, '#ffb74d'); // End color (orange)
+
+        // Fill the canvas with the gradient
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Create a texture from the canvas
+        const texture = new THREE.CanvasTexture(canvas);
+
+        // Create a material with the texture and set transparency
+        const gradientMaterial = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide, // Render both sides of the plane
+            transparent: true, // Enable transparency
+            opacity: 0.8 // Set opacity to make the rectangle slightly transparent
+        });
+
+        // Create the rectangle mesh with gradient material
+        const rectMesh = new THREE.Mesh(rectGeometry, gradientMaterial);
+
+        // Create a parent group to hold the rectangle
+        const rectGroup = new THREE.Group();
+        rectGroup.add(rectMesh);
+
+        // Position the rectangle
+        rectGroup.position.set(1, 1.5, 3); // Adjust the position as needed
+
+        // Add the group to the scene
+        scene.add(rectGroup);
+
+
+
+
 
 
 
@@ -75,7 +125,7 @@
         fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
             const textGeometry = new TextGeometry('Helo', {
                 font: font,
-                size: 0.1, // Adjust the size of the text
+                size: 0.06, // Adjust the size of the text
                 height: 0.003, // Reduce the thickness of the text
                 curveSegments: 12, // Smoothness of the curves
                 bevelEnabled: true,
@@ -93,7 +143,6 @@
 
             scene.add(textMesh);
         });
-
 
 
      
