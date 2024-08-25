@@ -278,51 +278,105 @@
         gradient.addColorStop(0, '#ff6f61'); // Start color (coral)
         gradient.addColorStop(1, '#ffb74d'); // End color (orange)
 
+        const commentBox = document.getElementById('comment-content');
+        const maxVisibleComments = 6; // Maximum number of visible comments
+        // Remove the redeclaration of the variable
+        
 
-        // 1. Create an AudioListener and add it to the camera
-        const listener = new THREE.AudioListener();
-        camera.add(listener);
 
-        // 2. Create a global audio source
-        const sound = new THREE.Audio(listener);
+        function addCommentToBox(commentText) {
+            const comment = document.createElement('div');
+            comment.className = 'comment';
+            comment.textContent = commentText;
+    
+            // Add the new comment at the end
+            commentBox.appendChild(comment);
+    
+            // Remove the oldest comment if the total exceeds maxVisibleComments
+            const comments = commentBox.querySelectorAll('.comment');
+            if (comments.length > maxVisibleComments) {
+                commentBox.removeChild(comments[0]); // Remove the oldest comment (first in the list)
+            }
+        }
+    
+        // Initialize EventSource for real-time comments
+        function initializeCommentStream() {
+            const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
 
-        // 3. Load the sound file using AudioLoader
-        const audioLoader = new THREE.AudioLoader();
+            eventSource.onmessage = function(event) {
+                try {
+                    // Replace single quotes with double quotes to handle JSON format
+                    let formattedData = event.data.replace(/'/g, '"');
 
-        function loadAndPlayAudio() {
-            audioLoader.load('speech_output.wav', function(buffer) {
-                        sound.setBuffer(buffer);
-                        sound.setLoop(false); // Play the audio only once
-                        sound.setVolume(0.5);
-                        sound.play();
+                    // Parse the JSON data
+                    const commentData = JSON.parse(formattedData);
 
-                        // When the audio finishes, recursively call the function to fetch and play the next one
-                        sound.onEnded = function() {
-                            console.log('Audio finished playing.');
-                            // Call the function again to continue the loop
-                            setTimeout(loadAndPlayAudio, 5000)
-                        };
-                    }, function(xhr) {
-                        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-                    }, function(error) {
-                        console.error('An error occurred loading the audio:', error);
-                        // Retry the process if there's an error
-                        setTimeout(loadAndPlayAudio, 5000); // Retry after 5 seconds
-                    });
-            fetch('http://localhost:8000/stream-comments')
-                .then(response => response)
-                .then(data => {
-                    console.log('Next audio file is being prepared:');
-                })
-                .catch(error => {
-                    console.error('Error fetching the next audio:', error);
-                    // Retry the process if the API call fails
-                    setTimeout(loadAndPlayAudio, 5000); // Retry after 5 seconds
-                });
+                    // Extract author and message
+                    const author = commentData.author || 'Anonymous';
+                    const message = commentData.message || '';
+
+                    // Add formatted comment to the box
+                    addCommentToBox(`${author}: ${message}`);
+                    
+                } catch (error) {
+                    console.error('Error processing comment data:', error);
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.error('Error occurred:', event);
+                eventSource.close();
+            };
         }
 
-        // Start the loop by calling loadAndPlayAudio
-        loadAndPlayAudio();
+    
+        initializeCommentStream();
+
+
+        // // Initialize the EventSource to receive the stream of comments
+        // const eventSource = new EventSource('http://localhost:8000/stream-comments');
+
+        // // Listen for incoming events
+        // eventSource.onmessage = function(event) {
+        //     const comment = event.data;
+        //     console.log('Received comment from /stream-comments:', comment);
+
+        //     // Play the generated audio once a new comment is received
+        //     playAudio();
+        // };
+
+        // // Function to play the audio file (e.g., "speech_output.wav")
+        // function playAudio() {
+        //     // 1. Create an AudioListener and add it to the camera
+        //     const listener = new THREE.AudioListener();
+        //     camera.add(listener);
+
+        //     // 2. Create a global audio source
+        //     const sound = new THREE.Audio(listener);
+
+        //     // 3. Load the sound file using AudioLoader
+        //     const audioLoader = new THREE.AudioLoader();
+        //     audioLoader.load('speech_output.wav', function(buffer) {
+        //         sound.setBuffer(buffer);
+        //         sound.setLoop(false); // Play the audio only once
+        //         sound.setVolume(0.5);
+        //         sound.play();
+
+        //         // Handle what happens after the audio finishes playing
+        //         sound.onEnded = function() {
+        //             console.log('Audio finished playing.');
+        //         };
+        //     }, function(xhr) {
+        //         console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+        //     }, function(error) {
+        //         console.error('An error occurred loading the audio:', error);
+        //     });
+        // }
+
+        // Handle errors from the SSE stream
+        // eventSource.onerror = function(event) {
+        //     console.error('Error in SSE stream:', event);
+        // };
 
 
 
@@ -554,56 +608,56 @@
     
     </script>
     <script>
-        const commentBox = document.getElementById('comment-content');
-        const maxVisibleComments = 6; // Maximum number of visible comments
+        // const commentBox = document.getElementById('comment-content');
+        // const maxVisibleComments = 6; // Maximum number of visible comments
 
 
-        function addCommentToBox(commentText) {
-            const comment = document.createElement('div');
-            comment.className = 'comment';
-            comment.textContent = commentText;
+        // function addCommentToBox(commentText) {
+        //     const comment = document.createElement('div');
+        //     comment.className = 'comment';
+        //     comment.textContent = commentText;
     
-            // Add the new comment at the end
-            commentBox.appendChild(comment);
+        //     // Add the new comment at the end
+        //     commentBox.appendChild(comment);
     
-            // Remove the oldest comment if the total exceeds maxVisibleComments
-            const comments = commentBox.querySelectorAll('.comment');
-            if (comments.length > maxVisibleComments) {
-                commentBox.removeChild(comments[0]); // Remove the oldest comment (first in the list)
-            }
-        }
+        //     // Remove the oldest comment if the total exceeds maxVisibleComments
+        //     const comments = commentBox.querySelectorAll('.comment');
+        //     if (comments.length > maxVisibleComments) {
+        //         commentBox.removeChild(comments[0]); // Remove the oldest comment (first in the list)
+        //     }
+        // }
     
-        // Initialize EventSource for real-time comments
-        function initializeCommentStream() {
-            const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
+        // // Initialize EventSource for real-time comments
+        // function initializeCommentStream() {
+        //     const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
 
-            eventSource.onmessage = function(event) {
-                try {
-                    // Replace single quotes with double quotes to handle JSON format
-                    let formattedData = event.data.replace(/'/g, '"');
+        //     eventSource.onmessage = function(event) {
+        //         try {
+        //             // Replace single quotes with double quotes to handle JSON format
+        //             let formattedData = event.data.replace(/'/g, '"');
 
-                    // Parse the JSON data
-                    const commentData = JSON.parse(formattedData);
+        //             // Parse the JSON data
+        //             const commentData = JSON.parse(formattedData);
 
-                    // Extract author and message
-                    const author = commentData.author || 'Anonymous';
-                    const message = commentData.message || '';
+        //             // Extract author and message
+        //             const author = commentData.author || 'Anonymous';
+        //             const message = commentData.message || '';
 
-                    // Add formatted comment to the box
-                    addCommentToBox(`${author}: ${message}`);
-                } catch (error) {
-                    console.error('Error processing comment data:', error);
-                }
-            };
+        //             // Add formatted comment to the box
+        //             addCommentToBox(`${author}: ${message}`);
+        //         } catch (error) {
+        //             console.error('Error processing comment data:', error);
+        //         }
+        //     };
 
-            eventSource.onerror = function(event) {
-                console.error('Error occurred:', event);
-                eventSource.close();
-            };
-        }
+        //     eventSource.onerror = function(event) {
+        //         console.error('Error occurred:', event);
+        //         eventSource.close();
+        //     };
+        // }
 
     
-        initializeCommentStream();
+        // initializeCommentStream();
     </script>
     
 </body>

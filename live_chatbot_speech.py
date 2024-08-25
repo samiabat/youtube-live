@@ -19,7 +19,7 @@ app.add_middleware(
 
 
 # Replace with your own API key
-API_KEY = "AIzaSyAHwlQFfkcmfRzOJBsu7MsE-7jrm0LZ7Gg"
+API_KEY = "AIzaSyCp7i5IHB5dlBTM3Nz3cysqRPEq9czhv0Y"
 VIDEO_ID = "aL4mMqI41EY"  # Replace with the video ID of your live stream
 
 CHATBOT_API_URL = "http://18.176.84.155:5000/live"
@@ -162,6 +162,14 @@ async def handle_comment(session, author, message):
         # Wait for a while before processing the next comment
         await asyncio.sleep(60)  # Wait for 2 minutes before processing the next comment
 
+# Endpoint to handle incoming comments
+@app.post("/handle-comment")
+async def handle_comment_endpoint(author: str, message: str):
+    async with aiohttp.ClientSession() as session:
+        # Process the comment using the handle_comment function
+        await handle_comment(session, author, message)
+    return {"status": "Comment processed successfully"}
+
 
 # FastAPI endpoint to stream raw user comments in real-time
 @app.get("/stream-comments-only")
@@ -176,31 +184,6 @@ async def stream_comments_only():
             yield f"data: {comment}\n\n"  # Stream comment in Server-Sent Events format
 
     return StreamingResponse(comment_stream_only(), media_type="text/event-stream")
-
-# FastAPI endpoint to stream processed comments (chatbot + speech)
-@app.get("/stream-comments")
-async def stream_comments():
-    live_chat_id = get_live_chat_id(API_KEY, VIDEO_ID)
-    if not live_chat_id:
-        return {"error": "The video is not currently live or has no active chat."}
-
-    async def generate_audio():
-        async with aiohttp.ClientSession() as session:
-            # Simulate generating the audio file from live chat comments
-            async for comment in get_live_chat_comments(API_KEY, live_chat_id):
-                author = comment.get("author", "Anonymous")
-                message = comment.get("message", "")
-                print(f"Received comment from {author}: {message}")
-
-                # Generate audio file (e.g., "current-audio.mp3") using the comment
-                # Here you would add your logic to generate the audio based on the comment
-                await handle_comment(session, author, message)
-                break  # After handling the first comment, break to simulate processing one at a time
-
-    await generate_audio()
-
-    # Return a response indicating that the audio has been prepared
-    return {"status": "Next audio prepared"}
 
 if __name__ == "__main__":
     import uvicorn
