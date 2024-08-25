@@ -16,9 +16,216 @@
         }
       }
     </script>
+
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            background-image: url("img/bg.jpg");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            align-content: space-around;
+        }
+
+        #container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Comment Box */
+        #comment-box {
+            width: 40%; /* Adjust the width as needed */
+            height: 70%; /* Adjust the height as needed */
+            background-color: rgba(0, 0, 0, 0.8); /* Dark background with transparency */
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Hide scrollbars */
+            font-family: 'Roboto', sans-serif;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
+            position: relative; /* Ensure positioning is relative to the container */
+        }
+
+        /* Header Inside the Comment Box */
+        #comment-header {
+            width: 100%;
+            padding: 15px;
+            font-size: 24px;
+            font-family: 'Noto Sans JP', sans-serif;
+            font-weight: bold;
+            text-align: center;
+            background: linear-gradient(45deg, #ff89a6, #ff005a); /* Gradient background */
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            margin-bottom: 10px; /* Space between header and the decorative section */
+        }
+
+        /* Decorative Section Above the Line */
+        #decorative-section {
+            width: 100%;
+            height: 60px; /* Adjust the height for visual impact */
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.3)), url('path/to/decorative-pattern.png'); /* Pattern and gradient background */
+            background-size: cover;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        /* Text in Decorative Section */
+        #decorative-text {
+            font-size: 18px;
+            color: #ffd700; /* Gold color */
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5); /* Text shadow for better readability */
+            font-weight: bold;
+        }
+
+        /* Extra Creative Element Section */
+        #extra-creative {
+            width: 100%;
+            height: 80px; /* Adjust as needed */
+            background: rgba(255, 255, 255, 0.2); /* Semi-transparent background */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        /* Content for the Extra Creative Section */
+        #extra-creative-content {
+            font-size: 20px;
+            color: #ffeb3b; /* Bright yellow */
+            text-align: center;
+            line-height: 1.4;
+            font-weight: bold;
+        }
+
+        /* Artistic Horizontal Line */
+        #horizontal-line {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #ffffff, transparent);
+            margin: 20px 0; /* Space around the line */
+            position: absolute;
+            top: 45%; /* Position at the middle of the comment box */
+            left: 0;
+            transform: translateY(-50%); /* Center the line vertically */
+        }
+
+        /* Live Comments Section Below the Line */
+        #comment-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Spacing between comments */
+            overflow-y: auto; /* Scrollable */
+            padding-top: 60px; /* Space for the comments to be visible */
+            padding-bottom: 10px; /* Space for the bottom text */
+            position: absolute;
+            top: 43%; /* Start below the horizontal line */
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+
+        /* Each Comment Block */
+        .comment {
+            display: flex;
+            flex-direction: column;
+            padding: 8px 10px;
+            background-color: rgba(255, 255, 255, 0.1); /* Semi-transparent white for comments */
+            border-radius: 5px;
+            animation: fade-in 0.5s ease-in-out;
+            font-size: 14px;
+            overflow: hidden; /* Hide overflow */
+            font-family: 'Arial', sans-serif;
+        }
+
+        /* Username Styling */
+        .comment .username {
+            font-weight: bold;
+            font-size: 15px;
+            color: #ffd700; /* Gold color for the username */
+        }
+
+        /* Comment Text Styling */
+        .comment .message {
+            font-size: 14px;
+            color: #ffffff;
+            margin-top: 2px;
+        }
+
+        /* Smooth Fade-in Animation for New Comments */
+        @keyframes fade-in {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+
+
+
+        #right-side {
+            width: 50%; /* Takes up more space now */
+            height: 100vh; /* Full height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+    </style>
 </head>
 
 <body>
+
+    <div id="comment-box">
+        <!-- Header Inside the Comment Box -->
+        <div id="comment-header">Live Chat • Igarashi Stream</div>
+    
+        <!-- Decorative Section Above the Line -->
+        <div id="decorative-section">
+            <div id="decorative-text">Welcome to the Stream!</div>
+        </div>
+    
+        <!-- Extra Creative Element Section -->
+        <div id="extra-creative">
+            <div id="extra-creative-content">
+                🎉 Enjoy the Show! 🎊<br>
+                ここで盛り上がろう！<br> <!-- Japanese Text for Excitement -->
+                Comments from the user! 💬
+            </div>
+        </div>
+
+        <!-- Artistic Horizontal Line in the Middle -->
+        <div id="horizontal-line"></div>
+    
+        <!-- Comment Content Below the Line -->
+        <div id="comment-content"></div>
+    </div>
+    
+
+    
+    <div id="right-side">
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
 
     <script type="module">
@@ -44,10 +251,17 @@
 
         let now = new Date(new Date().toUTCString());
 
+        const rightSide = document.getElementById('right-side');
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        renderer.setSize(rightSide.clientWidth, rightSide.clientHeight);
+        rightSide.appendChild(renderer.domElement);
+
+        window.addEventListener('resize', () => {
+            renderer.setSize(rightSide.clientWidth, rightSide.clientHeight);
+        });
+
+
 
         const targetAspect = document.body.clientWidth / document.body.clientHeight;
 
@@ -55,126 +269,62 @@
         light.position.set(-1, 1, -1).normalize();
         scene.add(light);
 
-        const imgLoader = new THREE.TextureLoader();
-        imgLoader.load('img/bg.jpg', function(texture){
-            scene.background = texture;
-        });
-
-        const rectWidth = 2;  // Width of the rectangle
-        const rectHeight = 2; // Height of the rectangle
-        const rectGeometry = new THREE.PlaneGeometry(rectWidth, rectHeight);
-
         const canvas = document.createElement('canvas');
-        canvas.width = 512; // Adjust size as needed
-        canvas.height = 512; // Adjust size as needed
+        // canvas.width = 400; // Adjust size as needed
+        // canvas.height = 512; // Adjust size as needed
         const context = canvas.getContext('2d');
 
         const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
         gradient.addColorStop(0, '#ff6f61'); // Start color (coral)
         gradient.addColorStop(1, '#ffb74d'); // End color (orange)
 
-        context.fillStyle = gradient;
-        context.fillRect(0, 0, canvas.width, canvas.height);
 
-        const texture = new THREE.CanvasTexture(canvas);
+        // 1. Create an AudioListener and add it to the camera
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
 
-        const gradientMaterial = new THREE.MeshBasicMaterial({
-            map: texture,
-            side: THREE.DoubleSide, // Render both sides of the plane
-            transparent: true, // Enable transparency
-            opacity: 0.8 // Set opacity to make the rectangle slightly transparent
-        });
+        // 2. Create a global audio source
+        const sound = new THREE.Audio(listener);
 
-        const rectMesh = new THREE.Mesh(rectGeometry, gradientMaterial);
+        // 3. Load the sound file using AudioLoader
+        const audioLoader = new THREE.AudioLoader();
 
-        const rectGroup = new THREE.Group();
-        rectGroup.add(rectMesh);
+        function loadAndPlayAudio() {
+            audioLoader.load('speech_output.wav', function(buffer) {
+                        sound.setBuffer(buffer);
+                        sound.setLoop(false); // Play the audio only once
+                        sound.setVolume(0.5);
+                        sound.play();
 
-        rectGroup.position.set(1, 1.5, 3); // Adjust the position as needed
-
-        scene.add(rectGroup);
-
-        let textMeshes = [];
-
-        function addTextToBox(text, positionY, delay) {
-            const fontLoader = new FontLoader();
-
-            fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
-                const textGeometry = new TextGeometry(text, {
-                    font: font,
-                    size: 0.02, // Adjust the size of the text
-                    height: 0.003, // Reduce the thickness of the text
-                    curveSegments: 12, // Smoothness of the curves
-                    bevelEnabled: true,
-                    bevelThickness: 0.00003, // Reduce the thickness of the bevel
-                    bevelSize: 0.0001,
-                    bevelOffset: 0,
-                    bevelSegments: 3
+                        // When the audio finishes, recursively call the function to fetch and play the next one
+                        sound.onEnded = function() {
+                            console.log('Audio finished playing.');
+                            // Call the function again to continue the loop
+                            setTimeout(loadAndPlayAudio, 5000)
+                        };
+                    }, function(xhr) {
+                        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                    }, function(error) {
+                        console.error('An error occurred loading the audio:', error);
+                        // Retry the process if there's an error
+                        setTimeout(loadAndPlayAudio, 5000); // Retry after 5 seconds
+                    });
+            fetch('http://localhost:8000/stream-comments')
+                .then(response => response)
+                .then(data => {
+                    console.log('Next audio file is being prepared:');
+                })
+                .catch(error => {
+                    console.error('Error fetching the next audio:', error);
+                    // Retry the process if the API call fails
+                    setTimeout(loadAndPlayAudio, 5000); // Retry after 5 seconds
                 });
-
-                const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Change the color here
-                const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-
-                textMesh.position.set(1.2, 1 + positionY/10, 1.5); // Adjust these values as needed
-                textMesh.rotation.y = Math.PI; // Rotate around the X-axis by 180 degrees
-
-                scene.add(textMesh);
-                textMeshes.push(textMesh);
-                return textMesh;
-            });
         }
 
-        let comments = [
-            "Abebe: This is a comment."
-        ];
+        // Start the loop by calling loadAndPlayAudio
+        loadAndPlayAudio();
 
-        function updateTextBox() {
-            textMeshes.forEach(mesh => scene.remove(mesh));
-            textMeshes = [];
 
-            comments.forEach((comment, index) => {
-                addTextToBox(comment, index * 0.1, 0).then(mesh => textMeshes.push(mesh));
-            });
-        }
-
-        function addComment(newComment) {
-            if (comments.length >= 5) {
-                let removedMesh = textMeshes.shift();
-                if (removedMesh) scene.remove(removedMesh);
-                comments.shift();
-            }
-            comments.push(newComment);
-            updateTextBox();
-        }
-
-        const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
-
-        eventSource.onmessage = (event) => {
-            try {
-                let rawData = event.data;
-
-                rawData = rawData.replace(/'/g, '"');
-
-                const data = JSON.parse(rawData);
-
-                console.log('Received comment:', data);
-
-                const author = data.author;
-                const message = data.message;
-
-                const formattedComment = `${author}: ${message}`;
-
-                addComment(formattedComment);
-            } catch (error) {
-                console.error('Error processing comment:', error);
-            }
-        };
-
-        eventSource.onerror = (error) => {
-            console.error('EventSource failed:', error);
-        };
-
-        setInterval(updateTextBox, 2000);
 
         loadVrm();
         function loadVrm() {
@@ -197,9 +347,9 @@
                     scene.add(vrm.scene);
                     currentVrm = vrm;
 
-                    vrm.scene.position.set(-0.8, -1.1, 1);
-                    vrm.scene.rotation.y = - Math.PI / 6;
-                    vrm.scene.scale.set(2, 2, 2);
+                    vrm.scene.position.set(0.5, -1.1, 1);
+                    vrm.scene.rotation.y = 0;
+                    vrm.scene.scale.set(2.3, 2, 2.3);
 
                     joinSpringManager = vrm.springBoneManager;
 
@@ -401,10 +551,61 @@
             }
 
         }
+    
     </script>
     <script>
+        const commentBox = document.getElementById('comment-content');
+        const maxVisibleComments = 6; // Maximum number of visible comments
 
+
+        function addCommentToBox(commentText) {
+            const comment = document.createElement('div');
+            comment.className = 'comment';
+            comment.textContent = commentText;
+    
+            // Add the new comment at the end
+            commentBox.appendChild(comment);
+    
+            // Remove the oldest comment if the total exceeds maxVisibleComments
+            const comments = commentBox.querySelectorAll('.comment');
+            if (comments.length > maxVisibleComments) {
+                commentBox.removeChild(comments[0]); // Remove the oldest comment (first in the list)
+            }
+        }
+    
+        // Initialize EventSource for real-time comments
+        function initializeCommentStream() {
+            const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
+
+            eventSource.onmessage = function(event) {
+                try {
+                    // Replace single quotes with double quotes to handle JSON format
+                    let formattedData = event.data.replace(/'/g, '"');
+
+                    // Parse the JSON data
+                    const commentData = JSON.parse(formattedData);
+
+                    // Extract author and message
+                    const author = commentData.author || 'Anonymous';
+                    const message = commentData.message || '';
+
+                    // Add formatted comment to the box
+                    addCommentToBox(`${author}: ${message}`);
+                } catch (error) {
+                    console.error('Error processing comment data:', error);
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.error('Error occurred:', event);
+                eventSource.close();
+            };
+        }
+
+    
+        initializeCommentStream();
     </script>
+    
 </body>
 
 </html>

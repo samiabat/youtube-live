@@ -19,8 +19,8 @@ app.add_middleware(
 
 
 # Replace with your own API key
-API_KEY = "AIzaSyCcQepQCmN1Umjo4LotvLt51QX1LJatH-4"
-VIDEO_ID = "-mvUkiILTqI"  # Replace with the video ID of your live stream
+API_KEY = "AIzaSyAHwlQFfkcmfRzOJBsu7MsE-7jrm0LZ7Gg"
+VIDEO_ID = "aL4mMqI41EY"  # Replace with the video ID of your live stream
 
 CHATBOT_API_URL = "http://18.176.84.155:5000/live"
 SPEECH_API_URL = "http://13.114.188.215:5000/voice"
@@ -69,18 +69,18 @@ async def get_chatbot_response(session, comment, username):
 async def convert_to_speech(session, text):
     params = {
         "text": text,
-        "model_id": 9,
-        "speaker_name": "SPEAKER-A",
+        "model_id": 8,
+        "speaker_name": "A",
         "speaker_id": 0,
         "sdp_ratio": 0.2,
         "noise": 0.6,
         "noisew": 0.8,
         "length": 1,
-        "language": "JP",
+        "language": "EN",
         "auto_split": "true",
         "split_interval": 0.5,
         "assist_text_weight": 1,
-        "style": "Sad",
+        "style": "Neutral",
         "style_weight": 1,
         "pitch_scale": 1,
         "intonation_scale": 1
@@ -147,6 +147,8 @@ async def get_live_chat_comments(api_key, live_chat_id):
                 print(f"An error occurred while fetching live chat messages: {e}")
                 print("Retrying in 10 seconds...\n")
                 await asyncio.sleep(10)
+
+                
 # Asynchronous function to handle each comment (chatbot + speech)
 async def handle_comment(session, author, message):
     # Send the comment to the chatbot API
@@ -160,15 +162,7 @@ async def handle_comment(session, author, message):
         # Wait for a while before processing the next comment
         await asyncio.sleep(60)  # Wait for 2 minutes before processing the next comment
 
-# if __name__ == "__main__":
-#     # Get the liveChatId using the video ID
-#     live_chat_id = get_live_chat_id(API_KEY, VIDEO_ID)
 
-#     if live_chat_id:
-#         print(f"Live Chat ID found: {live_chat_id}")
-#         asyncio.run(get_live_chat_comments(API_KEY, live_chat_id))
-#     else:
-#         print("The video is not currently live or has no active chat.")
 # FastAPI endpoint to stream raw user comments in real-time
 @app.get("/stream-comments-only")
 async def stream_comments_only():
@@ -182,6 +176,31 @@ async def stream_comments_only():
             yield f"data: {comment}\n\n"  # Stream comment in Server-Sent Events format
 
     return StreamingResponse(comment_stream_only(), media_type="text/event-stream")
+
+# FastAPI endpoint to stream processed comments (chatbot + speech)
+@app.get("/stream-comments")
+async def stream_comments():
+    live_chat_id = get_live_chat_id(API_KEY, VIDEO_ID)
+    if not live_chat_id:
+        return {"error": "The video is not currently live or has no active chat."}
+
+    async def generate_audio():
+        async with aiohttp.ClientSession() as session:
+            # Simulate generating the audio file from live chat comments
+            async for comment in get_live_chat_comments(API_KEY, live_chat_id):
+                author = comment.get("author", "Anonymous")
+                message = comment.get("message", "")
+                print(f"Received comment from {author}: {message}")
+
+                # Generate audio file (e.g., "current-audio.mp3") using the comment
+                # Here you would add your logic to generate the audio based on the comment
+                await handle_comment(session, author, message)
+                break  # After handling the first comment, break to simulate processing one at a time
+
+    await generate_audio()
+
+    # Return a response indicating that the audio has been prepared
+    return {"status": "Next audio prepared"}
 
 if __name__ == "__main__":
     import uvicorn
