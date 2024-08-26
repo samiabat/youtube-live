@@ -280,25 +280,180 @@
 
         const commentBox = document.getElementById('comment-content');
         const maxVisibleComments = 6; // Maximum number of visible comments
-        // Remove the redeclaration of the variable
-        
+        let commentQueue = []; // Queue for comments that need audio responses
+        let isProcessingAudio = false; // Flag to indicate if audio is being processed
 
-
+        // Function to add comments to the box
         function addCommentToBox(commentText) {
             const comment = document.createElement('div');
             comment.className = 'comment';
             comment.textContent = commentText;
-    
+
             // Add the new comment at the end
             commentBox.appendChild(comment);
-    
+
             // Remove the oldest comment if the total exceeds maxVisibleComments
             const comments = commentBox.querySelectorAll('.comment');
             if (comments.length > maxVisibleComments) {
                 commentBox.removeChild(comments[0]); // Remove the oldest comment (first in the list)
             }
         }
-    
+
+        // Function to handle incoming comments from the server
+        function handleNewComment(author, message) {
+            // Add the comment to the chat box
+            addCommentToBox(`${author}: ${message}`);
+
+            // Decide if we want to generate audio for this comment
+            // Example: Generate audio for every 5th comment
+            if (commentQueue.length % 5 === 0) {
+                commentQueue.push({ author, message });
+                processAudioQueue(); // Start processing the queue if not already processing
+            }
+        }
+
+        const chatbotApiUrl = "http://18.176.84.155:5000/live";
+        const speechApiUrl = "http://13.114.188.215:5000/voice";
+
+        async function getChatbotResponse(comment, username) {
+            const payload = {
+                body: {
+                    event_id: 1,
+                    game_id: null,
+                    character_name: "saionji",
+                    username: username,
+                    userid: 662,
+                    comment: comment,
+                    giftid: null,
+                    gender: "male",
+                    embedding: null,
+                    language: "English"
+                }
+            };
+
+            try {
+                const response = await fetch(chatbotApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const responseData = await response.json();
+                    console.log(responseData, comment, username)
+                    return responseData.body?.text || 'No response from chatbot';
+                } else {
+                    console.error(`Chatbot request failed with status: ${response.status}`);
+                    return null;
+                }
+            } catch (error) {
+                console.error(`Failed to get chatbot response: ${error}`);
+                return null;
+            }
+        }
+
+
+
+        async function processAudioQueue() {
+            if (isProcessingAudio || commentQueue.length === 0) return;
+
+            isProcessingAudio = true;
+            const { author, message } = commentQueue.shift(); // Get the next comment to process
+
+            try {
+                // Fetch chatbot response
+                const chatbotResponse = await getChatbotResponse(message, author);
+                if (chatbotResponse) {
+                    // Generate speech based on chatbot response
+                    await generateSpeech(chatbotResponse);
+                }
+            } catch (error) {
+                console.error('Error processing the comment:', error);
+            }
+        }
+
+        async function generateSpeech(text) {
+            const params = {
+                text: text,
+                model_id: 8,
+                speaker_name: "A",
+                speaker_id: 0,
+                sdp_ratio: 0.2,
+                noise: 0.6,
+                noisew: 0.8,
+                length: 1,
+                language: "EN",
+                auto_split: "true",
+                split_interval: 0.5,
+                assist_text_weight: 1,
+                style: "Neutral",
+                style_weight: 1,
+                pitch_scale: 1,
+                intonation_scale: 1
+            };
+
+            const queryString = new URLSearchParams(params).toString();
+            const requestUrl = `${speechApiUrl}?${queryString}`;
+
+            try {
+                const response = await fetch(requestUrl, { method: 'POST' });
+
+                if (response.ok) {
+                    const audioData = await response.arrayBuffer();
+                    console.log("Speech generated successfully. Playing audio...");
+
+                    // Convert the audio data to a playable format
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const buffer = await audioContext.decodeAudioData(audioData);
+                    const source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioContext.destination);
+                    source.start(0);
+
+                    // Ensure no overlap by waiting until the audio finishes before processing the next
+                    source.onended = () => {
+                        isProcessingAudio = false;
+                        processAudioQueue(); // Continue processing the queue
+                    };
+
+                } else if (response.status === 405) {
+                    console.log("Method not allowed, retrying in 60 seconds...");
+                    setTimeout(() => generateSpeech(text), 60000); // Retry after 60 seconds
+                } else {
+                    console.error("An unexpected error occurred:", response.statusText);
+                }
+
+            } catch (error) {
+                console.error('Error processing audio:', error);
+                isProcessingAudio = false;
+                processAudioQueue(); // Ensure queue processing continues even if an error occurs
+            }
+        }
+
+
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
+
+        const sound = new THREE.Audio(listener);
+        const audioLoader = new THREE.AudioLoader();
+
+        // Function to load and play the audio
+        async function loadAndPlayAudio(audioData) {
+            const buffer = await audioContext.decodeAudioData(audioData);
+            sound.setBuffer(buffer);
+            sound.setLoop(false);
+            sound.setVolume(0.5);
+            sound.play();
+
+            // When the audio finishes, process the next comment
+            sound.onEnded = function() {
+                console.log('Audio finished playing.');
+                setTimeout(processAudioQueue, 2000); // Add a small delay before processing the next audio
+            };
+        }
+
+        // loadAndPlayAudio()
+
         // Initialize EventSource for real-time comments
         function initializeCommentStream() {
             const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
@@ -315,8 +470,8 @@
                     const author = commentData.author || 'Anonymous';
                     const message = commentData.message || '';
 
-                    // Add formatted comment to the box
-                    addCommentToBox(`${author}: ${message}`);
+                    // Handle the new comment
+                    handleNewComment(author, message);
                     
                 } catch (error) {
                     console.error('Error processing comment data:', error);
@@ -329,54 +484,8 @@
             };
         }
 
-    
+        // Start the comment stream
         initializeCommentStream();
-
-
-        // // Initialize the EventSource to receive the stream of comments
-        // const eventSource = new EventSource('http://localhost:8000/stream-comments');
-
-        // // Listen for incoming events
-        // eventSource.onmessage = function(event) {
-        //     const comment = event.data;
-        //     console.log('Received comment from /stream-comments:', comment);
-
-        //     // Play the generated audio once a new comment is received
-        //     playAudio();
-        // };
-
-        // // Function to play the audio file (e.g., "speech_output.wav")
-        // function playAudio() {
-        //     // 1. Create an AudioListener and add it to the camera
-        //     const listener = new THREE.AudioListener();
-        //     camera.add(listener);
-
-        //     // 2. Create a global audio source
-        //     const sound = new THREE.Audio(listener);
-
-        //     // 3. Load the sound file using AudioLoader
-        //     const audioLoader = new THREE.AudioLoader();
-        //     audioLoader.load('speech_output.wav', function(buffer) {
-        //         sound.setBuffer(buffer);
-        //         sound.setLoop(false); // Play the audio only once
-        //         sound.setVolume(0.5);
-        //         sound.play();
-
-        //         // Handle what happens after the audio finishes playing
-        //         sound.onEnded = function() {
-        //             console.log('Audio finished playing.');
-        //         };
-        //     }, function(xhr) {
-        //         console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-        //     }, function(error) {
-        //         console.error('An error occurred loading the audio:', error);
-        //     });
-        // }
-
-        // Handle errors from the SSE stream
-        // eventSource.onerror = function(event) {
-        //     console.error('Error in SSE stream:', event);
-        // };
 
 
 
@@ -408,7 +517,7 @@
                     joinSpringManager = vrm.springBoneManager;
 
                     if (currentVrm) {
-                        applyAnimation('/bvh/talking1.bvh', 'waiting');
+                        applyAnimation('/bvh/dance_motion1.bvh', 'waiting');
                     }
                     setTimeout(() => {
                         console.log('success');
