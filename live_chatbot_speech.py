@@ -20,8 +20,8 @@ app.add_middleware(
 
 
 # Replace with your own API key
-API_KEY = "AIzaSyCp7i5IHB5dlBTM3Nz3cysqRPEq9czhv0Y"
-VIDEO_ID = "kNJyAUyvvXg"  # Replace with the video ID of your live stream
+API_KEY = "AIzaSyAanTRdi4pKdkri0Wp8SnihLoWNYHYrMoA"
+VIDEO_ID = "-mvUkiILTqI"  # Replace with the video ID of your live stream
 
 CHATBOT_API_URL = "http://18.176.84.155:5000/live"
 SPEECH_API_URL = "http://13.114.188.215:5000/voice"
