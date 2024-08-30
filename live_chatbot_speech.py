@@ -18,10 +18,11 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+users = set()
 
 # Replace with your own API key
 API_KEY = "AIzaSyAanTRdi4pKdkri0Wp8SnihLoWNYHYrMoA"
-VIDEO_ID = "-mvUkiILTqI"  # Replace with the video ID of your live stream
+VIDEO_ID = "S3fGXc0R1UQ"  # Replace with the video ID of your live stream
 
 CHATBOT_API_URL = "http://18.176.84.155:5000/live"
 SPEECH_API_URL = "http://13.114.188.215:5000/voice"
@@ -43,6 +44,7 @@ async def get_live_chat_comments(api_key, live_chat_id):
     next_page_token = None
 
     async with aiohttp.ClientSession() as session:
+        cnt = 0
         while True:
             try:
                 print("Fetching messages...")
@@ -60,7 +62,22 @@ async def get_live_chat_comments(api_key, live_chat_id):
                     for item in live_chat_response['items']:
                         author = item['authorDetails']['displayName']
                         message = item['snippet']['displayMessage']
-                        yield {"author": author, "message": message}
+                        id = item['authorDetails']['channelId']
+                        if cnt % 10 == 0: print(f"Author: {author}, Id: {id}, Message: {message}")
+
+                        status = "old"
+
+                        if id not in users:
+                            users.add(id)
+                            status = "new"
+
+
+                        # Send the message to the chatbot API
+                        response_message = {"author": author, "message": message, "autherId": id, "status": status}
+
+                        print(response_message)
+                        
+                        yield response_message
 
                 next_page_token = live_chat_response.get('nextPageToken', None)
                 polling_interval = int(live_chat_response.get('pollingIntervalMillis', 20000)) / 1000

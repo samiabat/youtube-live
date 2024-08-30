@@ -300,14 +300,14 @@
         }
 
         // Function to handle incoming comments from the server
-        function handleNewComment(author, message) {
+        function handleNewComment(author, message, status) {
             // Add the comment to the chat box
-            addCommentToBox(`${author}: ${message}`);
+            addCommentToBox(`${author}: ${message}: ${status}`);
 
             // Decide if we want to generate audio for this comment
             // Example: Generate audio for every 5th comment
             if (commentQueue.length % 5 === 0) {
-                commentQueue.push({ author, message });
+                commentQueue.push({ author, message, status });
                 processAudioQueue(); // Start processing the queue if not already processing
             }
         }
@@ -355,14 +355,23 @@
 
 
         async function processAudioQueue() {
+            
             if (isProcessingAudio || commentQueue.length === 0) return;
 
             isProcessingAudio = true;
-            const { author, message } = commentQueue.shift(); // Get the next comment to process
+            const { author, message, status } = commentQueue.shift(); // Get the next comment to process
 
             try {
                 // Fetch chatbot response
-                const chatbotResponse = await getChatbotResponse(message, author);
+                let chatbotResponse;
+
+                if (status === "new") {
+                    chatbotResponse = "I won't give up even if I fail! I'm the clumsy VTuber, Cat Princess Nero!";
+                } else {
+                    chatbotResponse = await getChatbotResponse(message, author);
+                }
+
+                
                 if (chatbotResponse) {
                     // Generate speech based on chatbot response
                     await generateSpeech(chatbotResponse);
@@ -468,10 +477,14 @@
 
                     // Extract author and message
                     const author = commentData.author || 'Anonymous';
-                    const message = commentData.message || '';
+                    const  message = commentData.message || '';
+                    const autherId = commentData.authorId || '';
+                    const status = commentData.status || '';
 
+                
                     // Handle the new comment
-                    handleNewComment(author, message);
+
+                    handleNewComment(author, message, status);
                     
                 } catch (error) {
                     console.error('Error processing comment data:', error);
@@ -499,7 +512,7 @@
             });
 
             loader.load(
-                `/models/Sena_Saotome.vrm`,
+                `/models/L001_cos01.vrm`,
                 (gltf) => {
                     const vrm = gltf.userData.vrm;
                     VRMUtils.removeUnnecessaryVertices(gltf.scene);
@@ -510,7 +523,7 @@
                     scene.add(vrm.scene);
                     currentVrm = vrm;
 
-                    vrm.scene.position.set(0.5, -1.1, 1);
+                    vrm.scene.position.set(0.2, -1.3, 0);
                     vrm.scene.rotation.y = 0;
                     vrm.scene.scale.set(2.3, 2, 2.3);
 
@@ -715,58 +728,6 @@
 
         }
     
-    </script>
-    <script>
-        // const commentBox = document.getElementById('comment-content');
-        // const maxVisibleComments = 6; // Maximum number of visible comments
-
-
-        // function addCommentToBox(commentText) {
-        //     const comment = document.createElement('div');
-        //     comment.className = 'comment';
-        //     comment.textContent = commentText;
-    
-        //     // Add the new comment at the end
-        //     commentBox.appendChild(comment);
-    
-        //     // Remove the oldest comment if the total exceeds maxVisibleComments
-        //     const comments = commentBox.querySelectorAll('.comment');
-        //     if (comments.length > maxVisibleComments) {
-        //         commentBox.removeChild(comments[0]); // Remove the oldest comment (first in the list)
-        //     }
-        // }
-    
-        // // Initialize EventSource for real-time comments
-        // function initializeCommentStream() {
-        //     const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
-
-        //     eventSource.onmessage = function(event) {
-        //         try {
-        //             // Replace single quotes with double quotes to handle JSON format
-        //             let formattedData = event.data.replace(/'/g, '"');
-
-        //             // Parse the JSON data
-        //             const commentData = JSON.parse(formattedData);
-
-        //             // Extract author and message
-        //             const author = commentData.author || 'Anonymous';
-        //             const message = commentData.message || '';
-
-        //             // Add formatted comment to the box
-        //             addCommentToBox(`${author}: ${message}`);
-        //         } catch (error) {
-        //             console.error('Error processing comment data:', error);
-        //         }
-        //     };
-
-        //     eventSource.onerror = function(event) {
-        //         console.error('Error occurred:', event);
-        //         eventSource.close();
-        //     };
-        // }
-
-    
-        // initializeCommentStream();
     </script>
     
 </body>
