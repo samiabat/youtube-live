@@ -282,6 +282,8 @@
         const maxVisibleComments = 6; // Maximum number of visible comments
         let commentQueue = []; // Queue for comments that need audio responses
         let isProcessingAudio = false; // Flag to indicate if audio is being processed
+        let introducedUsers = new Set(); // Set to keep track of introduced users
+        let idleInterval; // Interval to handle idle talking
 
         // Function to add comments to the box
         function addCommentToBox(commentText) {
@@ -299,17 +301,11 @@
             }
         }
 
-        // Function to handle incoming comments from the server
         function handleNewComment(author, message, status) {
-            // Add the comment to the chat box
+            // Queue the comment
             addCommentToBox(`${author}: ${message}: ${status}`);
-
-            // Decide if we want to generate audio for this comment
-            // Example: Generate audio for every 5th comment
-            if (commentQueue.length % 5 === 0) {
-                commentQueue.push({ author, message, status });
-                processAudioQueue(); // Start processing the queue if not already processing
-            }
+            commentQueue.push({ author, message, status });
+            processAudioQueue(); // Start processing the queue if not already processing
         }
 
         const chatbotApiUrl = "http://18.176.84.155:5000/live";
@@ -320,9 +316,9 @@
                 body: {
                     event_id: 1,
                     game_id: null,
-                    character_name: "saionji",
+                    character_name: "nekohime",
                     username: username,
-                    userid: 662,
+                    userid: "Live",
                     comment: comment,
                     giftid: null,
                     gender: "male",
@@ -352,28 +348,25 @@
             }
         }
 
-
-
         async function processAudioQueue() {
-            
             if (isProcessingAudio || commentQueue.length === 0) return;
 
             isProcessingAudio = true;
             const { author, message, status } = commentQueue.shift(); // Get the next comment to process
 
             try {
-                // Fetch chatbot response
-                let chatbotResponse;
+                let chatbotResponse = await getChatbotResponse(message, author);
 
-                if (status === "new") {
-                    chatbotResponse = "I won't give up even if I fail! I'm the clumsy VTuber, Cat Princess Nero!";
-                } else {
-                    chatbotResponse = await getChatbotResponse(message, author);
+                // Check if the user is new
+                if (!introducedUsers.has(author)) {
+                    let introResponse = "I won't give up even if I fail! I'm the clumsy VTuber, Cat Princess Nero! "
+                    if (chatbotResponse) {
+                        chatbotResponse =  introResponse + chatbotResponse;
+                    }
+                    introducedUsers.add(author); // Mark the user as introduced
                 }
 
-                
                 if (chatbotResponse) {
-                    // Generate speech based on chatbot response
                     await generateSpeech(chatbotResponse);
                 }
             } catch (error) {
@@ -381,6 +374,31 @@
             }
         }
 
+
+
+        // Idle talking functionality
+        function startIdleTalking() {
+            idleInterval = setInterval(async () => {
+                if (commentQueue.length === 0 && !isProcessingAudio) {
+                    const idleMessages = [
+                        "I'm still here, waiting for your comments!",
+                        "Don't be shy, let's chat!",
+                        "I'm here to chat with you anytime!",
+                        "Feel free to ask me anything!"
+                    ];
+                    const randomMessage = idleMessages[Math.floor(Math.random() * idleMessages.length)];
+                    await generateSpeech(randomMessage);
+                }
+            }, 30000); // Adjust the interval as needed (e.g., every 30 seconds)
+        }
+
+        // Call this to start the idle talking when the app starts
+        startIdleTalking();
+
+        // Make sure to clear the interval when the app stops, if necessary
+        window.addEventListener('beforeunload', () => {
+            clearInterval(idleInterval);
+        });
         async function generateSpeech(text) {
             const params = {
                 text: text,
@@ -421,6 +439,7 @@
 
                     // Ensure no overlap by waiting until the audio finishes before processing the next
                     source.onended = () => {
+                        console.log('Audio finished playing.');
                         isProcessingAudio = false;
                         processAudioQueue(); // Continue processing the queue
                     };
@@ -469,10 +488,14 @@
 
             eventSource.onmessage = function(event) {
                 try {
+                    console.log('Raw data received:', event.data); // Log the raw data
                     // Replace single quotes with double quotes to handle JSON format
-                    let formattedData = event.data.replace(/'/g, '"');
+                    // Replace single quotes with double quotes, considering JSON structure
+                    let formattedData = event.data
+                        .replace(/(\r\n|\n|\r)/gm, "")  // Remove any line breaks
+                        .replace(/'/g, '"')             // Replace all single quotes with double quotes
+                        .replace(/"\s*:\s*'/g, '": "'); // Fix quotes around colons and spaces
 
-                    // Parse the JSON data
                     const commentData = JSON.parse(formattedData);
 
                     // Extract author and message
@@ -523,9 +546,14 @@
                     scene.add(vrm.scene);
                     currentVrm = vrm;
 
-                    vrm.scene.position.set(0.2, -1.3, 0);
+                    vrm.scene.position.set(0.2, -1.85, 0); // Keep the same position
                     vrm.scene.rotation.y = 0;
-                    vrm.scene.scale.set(2.3, 2, 2.3);
+                    vrm.scene.scale.set(4.5, 2.3, 4.5); // Further increase the X and Z axes scale to widen the face more
+
+
+
+
+
 
                     joinSpringManager = vrm.springBoneManager;
 
