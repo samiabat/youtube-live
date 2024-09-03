@@ -395,6 +395,8 @@
         // Call this to start the idle talking when the app starts
         startIdleTalking();
 
+        let isSpeaking = false;
+
         // Make sure to clear the interval when the app stops, if necessary
         window.addEventListener('beforeunload', () => {
             clearInterval(idleInterval);
@@ -436,9 +438,12 @@
                     source.buffer = buffer;
                     source.connect(audioContext.destination);
                     source.start(0);
+                    // Start mouth animation
+                    simulateSpeaking();
 
-                    // Ensure no overlap by waiting until the audio finishes before processing the next
+                    // Stop mouth animation when audio ends
                     source.onended = () => {
+                        stopMouthAnimation();
                         console.log('Audio finished playing.');
                         isProcessingAudio = false;
                         processAudioQueue(); // Continue processing the queue
@@ -472,7 +477,7 @@
             sound.setLoop(false);
             sound.setVolume(0.5);
             sound.play();
-
+            
             // When the audio finishes, process the next comment
             sound.onEnded = function() {
                 console.log('Audio finished playing.');
@@ -535,7 +540,7 @@
             });
 
             loader.load(
-                `/models/L001_cos01.vrm`,
+                `models/L001_cos01.vrm`,
                 (gltf) => {
                     const vrm = gltf.userData.vrm;
                     VRMUtils.removeUnnecessaryVertices(gltf.scene);
@@ -559,14 +564,72 @@
 
                     if (currentVrm) {
                         applyAnimation('/bvh/talking1.bvh', 'waiting');
+                        
                     }
-                    setTimeout(() => {
-                        console.log('success');
-                    }, 3000);
+                      // Adjust the delay if needed
+                    // setTimeout(() => {
+                    //     console.log('success');
+                    // }, 3000);
                 },
                 (progress) => { },
                 (error) => console.error(error)
             );
+        }
+
+        function simulateSpeaking() {
+            if (!currentVrm || !currentVrm.expressionManager) {
+                console.error("VRM or expression manager is not loaded.");
+                return;
+            }
+
+            const vowelExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
+            let currentExpressionIndex = 0;
+            let intensity = 0;
+            let intensityDirection = 1;
+
+            const updateExpression = () => {
+                if (!isSpeaking) return; // Stop updating if speaking has stopped
+
+                // Reset all expressions
+                Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
+                    currentVrm.expressionManager.setValue(expressionName, 0);
+                });
+
+                // Update the intensity of the current expression
+                const currentExpression = vowelExpressions[currentExpressionIndex];
+                intensity += 0.15 * intensityDirection;
+
+                // Check intensity bounds and adjust direction if necessary
+                if (intensity >= 1 || intensity <= 0) {
+                    intensityDirection *= -1;
+                    intensity = Math.max(0, Math.min(1, intensity)); // Clamp intensity between 0 and 1
+                }
+
+                // Set the current expression
+                currentVrm.expressionManager.setValue(currentExpression, intensity);
+                console.log(`Displaying expression: ${currentExpression} with intensity: ${intensity.toFixed(2)}`);
+
+                // Change expression when intensity closes
+                if (intensity <= 0) {
+                    currentExpressionIndex = (currentExpressionIndex + 1) % vowelExpressions.length;
+                }
+
+                // Continue the loop
+                setTimeout(updateExpression, 50); // Faster timing for more natural movement
+            };
+
+            isSpeaking = true; // Set speaking flag to true
+            updateExpression();
+        }
+
+        function stopMouthAnimation() {
+            isSpeaking = false;
+            // Reset all expressions
+            if (currentVrm && currentVrm.expressionManager) {
+                Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
+                    currentVrm.expressionManager.setValue(expressionName, 0);
+                });
+            }
         }
 
         let isProcessed = true;
