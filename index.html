@@ -391,7 +391,7 @@
             try {
                 let { text: chatbotResponse, emotion: emotionText } = await getChatbotResponse(message, author);
 
-                const cerrrentEmotions = {
+                const currentEmotion = {
                     1: 'happy',      // Very happy
                     2: 'relaxed',    // Happy
                     3: 'neutral',    // Normal
@@ -399,8 +399,8 @@
                     5: 'sorrow'         // Sad
                 };
 
-                // applyEmotion(cerrrentEmotions[emotionText]);
-                console.log("emotion, ", cerrrentEmotions[emotionText])
+                applyEmotion(currentEmotion[emotionText]);
+                console.log("emotion, ", currentEmotion[emotionText])
                 // Now you can use chatbotResponse and emotion
                 console.log(`Chatbot response: ${chatbotResponse}`);
                 // console.log(`Emotion: ${emotionText}`);
@@ -541,9 +541,6 @@
                     // Start mouth animation
                     simulateSpeaking();
 
-                    // applyEmotion("sad")
-                    
-                    
 
                     // Stop mouth animation when audio ends
                     source.onended = () => {
@@ -551,7 +548,6 @@
                         console.log('Audio finished playing.');
                         isProcessingAudio = false;
                         processAudioQueue(); // Continue processing the queue
-                        // applyEmotion("neutral")
                         clearEmotion();
                     };
 
@@ -791,14 +787,22 @@
                 currentVrm.expressionManager.setValue(expressionName, 0);
             });
 
-            // Apply the selected emotion
-            if (emotions[emotion]) {
-                emotions[emotion].forEach(expressionName => {
-                    currentVrm.expressionManager.setValue(expressionName, 1);
-                });
-                console.log(`Applying emotion: ${emotion}`);
+            if (emotion === 'happy') {
+                
+                // Apply the 'happy' emotion expression
+                currentVrm.expressionManager.setValue('relaxed', 1);  // Apply happy emotion
+
+                console.log("Applied happy emotion with mouth closed.");
             } else {
-                console.error(`Emotion ${emotion} not found.`);
+                // Apply other emotions without mouth adjustment
+                if (emotions[emotion]) {
+                    emotions[emotion].forEach(expressionName => {
+                        currentVrm.expressionManager.setValue(expressionName, 1);
+                    });
+                    console.log(`Applying emotion: ${emotion}`);
+                } else {
+                    console.error(`Emotion ${emotion} not found.`);
+                }
             }
         }
 
