@@ -303,7 +303,7 @@
 
         function handleNewComment(author, message, status) {
             // Queue the comment
-            addCommentToBox(`${author}: ${message}: ${status}`);
+            addCommentToBox(`${author}: ${message}`);
             commentQueue.push({ author, message, status });
             processAudioQueue(); // Start processing the queue if not already processing
         }
@@ -323,7 +323,7 @@
                     giftid: null,
                     gender: "male",
                     embedding: null,
-                    language: "English"
+                    language: "Japanese"
                 }
             };
 
@@ -336,8 +336,11 @@
 
                 if (response.ok) {
                     const responseData = await response.json();
-                    console.log(responseData, comment, username)
-                    return responseData.body?.text || 'No response from chatbot';
+                    console.log("response data from the chatbot:",  responseData, comment, username)
+                    return {
+                        text: responseData.body?.text || 'No response from chatbot',
+                        emotion: responseData.body?.EmotionalB || responseData.body?.EmotionalA || "1" // Replace EmotionalB with the actual key
+                    };
                 } else {
                     console.error(`Chatbot request failed with status: ${response.status}`);
                     return null;
@@ -348,6 +351,37 @@
             }
         }
 
+        async function playIntroAudio() {
+            const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
+
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const response = await fetch(introAudioUrl);
+                const audioData = await response.arrayBuffer();
+                const buffer = await audioContext.decodeAudioData(audioData);
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+                simulateSpeaking();
+                
+
+                console.log('Intro audio playing for new user.');
+
+                // Ensure no overlap by waiting for the audio to finish before proceeding
+                return new Promise(resolve => {
+                    source.onended = () => {
+                        stopMouthAnimation();
+                        console.log('Intro audio finished.');
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                console.error('Error playing intro audio:', error);
+            }
+        }
+
+
         async function processAudioQueue() {
             if (isProcessingAudio || commentQueue.length === 0) return;
 
@@ -355,16 +389,31 @@
             const { author, message, status } = commentQueue.shift(); // Get the next comment to process
 
             try {
-                let chatbotResponse = await getChatbotResponse(message, author);
+                let { text: chatbotResponse, emotion: emotionText } = await getChatbotResponse(message, author);
+
+                const cerrrentEmotions = {
+                    1: 'happy',      // Very happy
+                    2: 'relaxed',    // Happy
+                    3: 'neutral',    // Normal
+                    4: 'angry',      // Slightly confused
+                    5: 'sorrow'         // Sad
+                };
+
+                // applyEmotion(cerrrentEmotions[emotionText]);
+                console.log("emotion, ", cerrrentEmotions[emotionText])
+                // Now you can use chatbotResponse and emotion
+                console.log(`Chatbot response: ${chatbotResponse}`);
+                // console.log(`Emotion: ${emotionText}`);
 
                 // Check if the user is new
                 if (!introducedUsers.has(author)) {
-                    let introResponse = "I won't give up even if I fail! I'm the clumsy VTuber, Cat Princess Nero! "
-                    if (chatbotResponse) {
-                        chatbotResponse =  introResponse + chatbotResponse;
-                    }
+                    // let introResponse = "失敗しても諦めにゃい！ドジっ子VTuber、猫姫ネロだにゃんっ！ ";
+                    // Play the intro audio for new users
+                    await playIntroAudio();
+
                     introducedUsers.add(author); // Mark the user as introduced
                 }
+
 
                 if (chatbotResponse) {
                     await generateSpeech(chatbotResponse);
@@ -374,44 +423,94 @@
             }
         }
 
+        
+
 
 
         // Idle talking functionality
         function startIdleTalking() {
+            
+            console.log("aplying happy emotion")
             idleInterval = setInterval(async () => {
                 if (commentQueue.length === 0 && !isProcessingAudio) {
                     const idleMessages = [
-                        "I'm still here, waiting for your comments!",
-                        "Don't be shy, let's chat!",
-                        "I'm here to chat with you anytime!",
-                        "Feel free to ask me anything!"
+                        "私はまだここにいるよ",
+                        "コメント待ってるね！",
+                        "恥ずかしがらないで",
+                        "チャットしようよ！",
+                        "いつでもチャットしに来てね！",
+                        "何でも気軽に聞いてね！"
                     ];
                     const randomMessage = idleMessages[Math.floor(Math.random() * idleMessages.length)];
                     await generateSpeech(randomMessage);
                 }
-            }, 30000); // Adjust the interval as needed (e.g., every 30 seconds)
+            }, 11000); // Adjust the interval as needed (e.g., every 30 seconds)
         }
 
         // Call this to start the idle talking when the app starts
+        
+        
+        
         startIdleTalking();
 
+        // playIntroAudio();
         let isSpeaking = false;
 
         // Make sure to clear the interval when the app stops, if necessary
         window.addEventListener('beforeunload', () => {
             clearInterval(idleInterval);
         });
+
+        function clearEmotion() {
+            if (!currentVrm || !currentVrm.expressionManager) {
+                console.error("VRM or expression manager is not loaded.");
+                return;
+            }
+
+            // Log message indicating that we're clearing the current emotion
+            console.log("Clearing current emotion");
+
+            // Reset all expressions explicitly to 0 instead of null
+            Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
+                if (currentVrm.expressionManager.getValue(expressionName) !== 0) {
+                    currentVrm.expressionManager.setValue(expressionName, 0); // Set all expressions to 0
+                }
+            });
+
+            // Force update to apply the reset changes
+            currentVrm.expressionManager.update();
+
+            // Verify the reset state by logging the current values of all expressions
+            Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
+                const currentValue = currentVrm.expressionManager.getValue(expressionName);
+            });
+
+            // Optionally, set the VRM model back to a neutral state
+            currentVrm.expressionManager.setValue("sad", 0);
+            currentVrm.expressionManager.setValue("happy", 0);
+            currentVrm.expressionManager.setValue("relaxed", 0);
+            currentVrm.expressionManager.setValue("sad", 0);
+            currentVrm.expressionManager.setValue("angry", 0);
+            currentVrm.expressionManager.setValue('neutral', 1); // 'neutral' can be changed to a suitable expression if available.
+            currentVrm.expressionManager.update();
+
+            console.log("Emotion cleared and set to neutral state.");
+        }
+
+
+
+
         async function generateSpeech(text) {
             const params = {
                 text: text,
-                model_id: 8,
-                speaker_name: "A",
+                model_id: 12,
+                speaker_name: "A-amazinGood",
                 speaker_id: 0,
                 sdp_ratio: 0.2,
                 noise: 0.6,
                 noisew: 0.8,
                 length: 1,
-                language: "EN",
+                language: "JP",
                 auto_split: "true",
                 split_interval: 0.5,
                 assist_text_weight: 1,
@@ -423,6 +522,7 @@
 
             const queryString = new URLSearchParams(params).toString();
             const requestUrl = `${speechApiUrl}?${queryString}`;
+
 
             try {
                 const response = await fetch(requestUrl, { method: 'POST' });
@@ -441,12 +541,18 @@
                     // Start mouth animation
                     simulateSpeaking();
 
+                    // applyEmotion("sad")
+                    
+                    
+
                     // Stop mouth animation when audio ends
                     source.onended = () => {
                         stopMouthAnimation();
                         console.log('Audio finished playing.');
                         isProcessingAudio = false;
                         processAudioQueue(); // Continue processing the queue
+                        // applyEmotion("neutral")
+                        clearEmotion();
                     };
 
                 } else if (response.status === 405) {
@@ -495,11 +601,9 @@
                 try {
                     console.log('Raw data received:', event.data); // Log the raw data
                     // Replace single quotes with double quotes to handle JSON format
-                    // Replace single quotes with double quotes, considering JSON structure
                     let formattedData = event.data
                         .replace(/(\r\n|\n|\r)/gm, "")  // Remove any line breaks
-                        .replace(/'/g, '"')             // Replace all single quotes with double quotes
-                        .replace(/"\s*:\s*'/g, '": "'); // Fix quotes around colons and spaces
+                        .replace(/'/g, '"'); 
 
                     const commentData = JSON.parse(formattedData);
 
@@ -527,6 +631,32 @@
 
         // Start the comment stream
         initializeCommentStream();
+
+
+
+        function applyTalkingEmotion() {
+            if (currentVrm) {
+                // Apply talking animation
+                applyAnimation('/bvh/talking1.bvh', 'talking');
+                console.log("Applied talking emotion");
+            }
+        }
+
+        function applyWaitingEmotion() {
+            if (currentVrm) {
+                // Apply waiting animation
+                applyAnimation('/bvh/dance_motion1.bvh', 'waiting');
+                console.log("Applied waiting emotion");
+            }
+        }
+
+        function applyCuteEmotion() {
+            if (currentVrm) {
+                // Apply cute animation
+                applyAnimation('/bvh/gift_rocket.bvh', 'cute');
+                console.log("Applied cute emotion");
+            }
+        }
 
 
 
@@ -576,14 +706,13 @@
                 (error) => console.error(error)
             );
         }
+        
 
         function simulateSpeaking() {
             if (!currentVrm || !currentVrm.expressionManager) {
                 console.error("VRM or expression manager is not loaded.");
                 return;
             }
-
-            applyEmotion('angry'); 
 
             const vowelExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
             let currentExpressionIndex = 0;
@@ -610,7 +739,6 @@
 
                 // Set the current expression
                 currentVrm.expressionManager.setValue(currentExpression, intensity);
-                console.log(`Displaying expression: ${currentExpression} with intensity: ${intensity.toFixed(2)}`);
 
                 // Change expression when intensity closes
                 if (intensity <= 0) {
@@ -627,24 +755,30 @@
 
         function stopMouthAnimation() {
             isSpeaking = false;
-            
+
             // Ensure all mouth-related expressions are reset to 0
             if (currentVrm && currentVrm.expressionManager) {
                 const mouthExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
                 mouthExpressions.forEach(expressionName => {
                     currentVrm.expressionManager.setValue(expressionName, 0);
                 });
+                // After stopping, return to neutral emotion
             }
         }
 
+        
+
         const emotions = {
-            happy: ['happy'],
-            sad: ['sad'],
-            angry: ['angry'],
-            surprised: ['Surprised'],
-            relaxed: ['relaxed'],
-            // Add more emotions as needed
+            happy: ['happy'],       // Single expression
+            relaxed: ['relaxed'],   // Single expression
+            neutral: ['neutral'],   // Single expression
+            angry: ['angry'],       // Single expression
+            sad: ['sad']            // Single expression
         };
+
+        
+
+        
 
         function applyEmotion(emotion) {
             if (!currentVrm || !currentVrm.expressionManager) {
@@ -687,9 +821,7 @@
             currentVrm.currentAction = null;
             currentVrm.pendingAnimation = null;
             if (currentVrm.currentBvhFilePath === bvhFilePath) return;
-            console.log(currentVrm.currentBvhFilePath);
             if (mapAction.get(bvhFilePath)) {
-                console.log('haveFile');
                 if (!mixer) {
                     mixer = new THREE.AnimationMixer(currentVrm.scene);
                     currentVrm.mixer = mixer;
@@ -701,8 +833,6 @@
                 }
                 synchronizeCrossFade(bvhFilePath, 1, currentVrm);
             } else {
-                console.log('Dont`t haveFile');
-
                 currentVrm.loading = true;
                 const loader1 = new BVHLoader();
                 loader1.load(bvhFilePath, function (result) {

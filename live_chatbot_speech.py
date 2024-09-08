@@ -22,7 +22,7 @@ users = set()
 
 # Replace with your own API key
 API_KEY = "AIzaSyAanTRdi4pKdkri0Wp8SnihLoWNYHYrMoA"
-VIDEO_ID = "gDGl-cC-IVQ"  # Replace with the video ID of your live stream
+VIDEO_ID = "coYw-eVU0Ks"  # Replace with the video ID of your live stream
 
 CHATBOT_API_URL = "http://18.176.84.155:5000/live"
 SPEECH_API_URL = "http://13.114.188.215:5000/voice"
