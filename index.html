@@ -531,6 +531,8 @@
                     const audioData = await response.arrayBuffer();
                     console.log("Speech generated successfully. Playing audio...");
 
+                    applyTalkingEmotion();
+
                     // Convert the audio data to a playable format
                     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     const buffer = await audioContext.decodeAudioData(audioData);
@@ -549,6 +551,7 @@
                         isProcessingAudio = false;
                         processAudioQueue(); // Continue processing the queue
                         clearEmotion();
+                        applyWaitingEmotion();
                     };
 
                 } else if (response.status === 405) {
@@ -630,29 +633,43 @@
 
 
 
+        // Arrays to store multiple animations for each emotion
+        const talkingAnimations = ['speak-emotion/Sena_Saotome_talk01_e16.bvh', 'speak-emotion/Sena_Saotome_talk02_e05.bvh', 
+                                    'speak-emotion/Sena_Saotome_talk03_e03.bvh', 'speak-emotion/Sena_Saotome_talk04_e03.bvh', 
+                                    'speak-emotion/Sena_Saotome_talk05_e01.bvh'];
+        const waitingAnimations = ['waiting-emotion/Sena_Saotome_idle01_e06.bvh', 'waiting-emotion/Sena_Saotome_idle02_e08.bvh'];
+        const cuteAnimations = ['cute-emotion/Sena_Saotome_Accent01_e11.bvh', 'cute-emotion/Sena_Saotome_Approach01_e01.bvh'];
+
+        // Function to get a random animation from an array
+        function getRandomAnimation(animations) {
+            const randomIndex = Math.floor(Math.random() * animations.length);
+            return animations[randomIndex];
+        }
+
         function applyTalkingEmotion() {
             if (currentVrm) {
-                // Apply talking animation
-                applyAnimation('/bvh/talking1.bvh', 'talking');
-                console.log("Applied talking emotion");
+                const randomTalkingAnimation = getRandomAnimation(talkingAnimations);
+                applyAnimation(randomTalkingAnimation, 'talking');
+                console.log(`Applied talking emotion: ${randomTalkingAnimation}`);
             }
         }
 
         function applyWaitingEmotion() {
             if (currentVrm) {
-                // Apply waiting animation
-                applyAnimation('/bvh/dance_motion1.bvh', 'waiting');
-                console.log("Applied waiting emotion");
+                const randomWaitingAnimation = getRandomAnimation(waitingAnimations);
+                applyAnimation(randomWaitingAnimation, 'waiting');
+                console.log(`Applied waiting emotion: ${randomWaitingAnimation}`);
             }
         }
 
         function applyCuteEmotion() {
             if (currentVrm) {
-                // Apply cute animation
-                applyAnimation('/bvh/gift_rocket.bvh', 'cute');
-                console.log("Applied cute emotion");
+                const randomCuteAnimation = getRandomAnimation(cuteAnimations);
+                applyAnimation(randomCuteAnimation, 'cute');
+                console.log(`Applied cute emotion: ${randomCuteAnimation}`);
             }
         }
+
 
 
 
@@ -690,7 +707,7 @@
                     joinSpringManager = vrm.springBoneManager;
 
                     if (currentVrm) {
-                        applyAnimation('/bvh/talking1.bvh', 'waiting');
+                        applyWaitingEmotion();
                         
                     }
                       // Adjust the delay if needed
@@ -709,6 +726,8 @@
                 console.error("VRM or expression manager is not loaded.");
                 return;
             }
+
+            
 
             const vowelExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
             let currentExpressionIndex = 0;
@@ -788,6 +807,7 @@
             });
 
             if (emotion === 'happy') {
+                applyCuteEmotion();
                 
                 // Apply the 'happy' emotion expression
                 currentVrm.expressionManager.setValue('relaxed', 1);  // Apply happy emotion
