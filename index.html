@@ -301,6 +301,7 @@
             }
         }
 
+        // will queue the comment and process it when the audio is done
         function handleNewComment(author, message, status) {
             // Queue the comment
             addCommentToBox(`${author}: ${message}`);
@@ -311,10 +312,11 @@
         const chatbotApiUrl = "http://18.176.84.155:5000/live";
         const speechApiUrl = "http://13.114.188.215:5000/voice";
 
-        async function getChatbotResponse(comment, username) {
+        // get a response for comments from the chatbot
+        async function getChatbotResponse(comment, username, id) {
             const payload = {
                 body: {
-                    event_id: 1,
+                    event_id: id,
                     game_id: null,
                     character_name: "nekohime",
                     username: username,
@@ -339,7 +341,7 @@
                     console.log("response data from the chatbot:",  responseData, comment, username)
                     return {
                         text: responseData.body?.text || 'No response from chatbot',
-                        emotion: responseData.body?.EmotionalB || responseData.body?.EmotionalA || "1" // Replace EmotionalB with the actual key
+                        emotion: responseData.body?.EmotionalB || responseData.body?.EmotionalA || "3" // Replace EmotionalB with the actual key
                     };
                 } else {
                     console.error(`Chatbot request failed with status: ${response.status}`);
@@ -351,6 +353,7 @@
             }
         }
 
+        // Play the intro audio for new users
         async function playIntroAudio() {
             const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
 
@@ -382,6 +385,7 @@
         }
 
 
+        // Process the audio queue
         async function processAudioQueue() {
             if (isProcessingAudio || commentQueue.length === 0) return;
 
@@ -389,7 +393,7 @@
             const { author, message, status } = commentQueue.shift(); // Get the next comment to process
 
             try {
-                let { text: chatbotResponse, emotion: emotionText } = await getChatbotResponse(message, author);
+                let { text: chatbotResponse, emotion: emotionText } = await getChatbotResponse(message, author, 1);
 
                 const currentEmotion = {
                     1: 'happy',      // Very happy
@@ -427,30 +431,42 @@
 
 
 
-        // Idle talking functionality
+        // Function to start idle talking at regular intervals
         function startIdleTalking() {
-            
-            console.log("aplying happy emotion")
+            console.log("Applying happy emotion");
+
             idleInterval = setInterval(async () => {
                 if (commentQueue.length === 0 && !isProcessingAudio) {
-                    const idleMessages = [
-                        "私はまだここにいるよ",
-                        "コメント待ってるね！",
-                        "恥ずかしがらないで",
-                        "チャットしようよ！",
-                        "いつでもチャットしに来てね！",
-                        "何でも気軽に聞いてね！"
-                    ];
-                    const randomMessage = idleMessages[Math.floor(Math.random() * idleMessages.length)];
-                    await generateSpeech(randomMessage);
+                    try {
+                        // Set flag to avoid overlapping messages
+                        isProcessingAudio = true;
+
+                        // Fetch idle message from the chatbot response
+                        const idleComment = "";  // Identifier for idle messages
+                        const username = ""; // Default username for idle mode
+
+                        let { text: idleMessage } = await getChatbotResponse(idleComment, username, 4);
+
+                        if (idleMessage) {
+                            console.log(`Idle message from chatbot: ${idleMessage}`);
+                            await generateSpeech(idleMessage);
+                        } else {
+                            console.error("No idle message received from the chatbot.");
+                        }
+
+                        // Reset flag after the speech finishes
+                        isProcessingAudio = false;
+
+                    } catch (error) {
+                        console.error("Error fetching idle message from chatbot:", error);
+                        isProcessingAudio = false; // Ensure flag is reset on error
+                    }
                 }
-            }, 11000); // Adjust the interval as needed (e.g., every 30 seconds)
+            }, 11000); // Adjust the interval as needed
         }
 
+
         // Call this to start the idle talking when the app starts
-        
-        
-        
         startIdleTalking();
 
         // playIntroAudio();
@@ -461,6 +477,8 @@
             clearInterval(idleInterval);
         });
 
+
+        // Function to clear the current emotion and set it to neutral
         function clearEmotion() {
             if (!currentVrm || !currentVrm.expressionManager) {
                 console.error("VRM or expression manager is not loaded.");
@@ -499,7 +517,7 @@
 
 
 
-
+        // Function to generate speech from text using the speech API
         async function generateSpeech(text) {
             const params = {
                 text: text,
@@ -523,7 +541,6 @@
             const queryString = new URLSearchParams(params).toString();
             const requestUrl = `${speechApiUrl}?${queryString}`;
 
-
             try {
                 const response = await fetch(requestUrl, { method: 'POST' });
 
@@ -531,7 +548,10 @@
                     const audioData = await response.arrayBuffer();
                     console.log("Speech generated successfully. Playing audio...");
 
-                    applyTalkingEmotion();
+                    applyTalkingEmotion();  // Apply an initial talking emotion
+
+                    // Start switching emotions periodically during speech
+                    switchEmotionsDuringSpeech();
 
                     // Convert the audio data to a playable format
                     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -540,18 +560,23 @@
                     source.buffer = buffer;
                     source.connect(audioContext.destination);
                     source.start(0);
+
                     // Start mouth animation
                     simulateSpeaking();
 
-
-                    // Stop mouth animation when audio ends
+                    // Stop mouth animation and emotion switching when audio ends
                     source.onended = () => {
                         stopMouthAnimation();
                         console.log('Audio finished playing.');
                         isProcessingAudio = false;
                         processAudioQueue(); // Continue processing the queue
+
+                        // Stop switching emotions
+                        stopSwitchingEmotions();
+
+                        // Reset to idle/waiting emotion
                         clearEmotion();
-                        applyWaitingEmotion();
+                        switchEmotionsDuringWaiting(); // Start switching emotions during waiting
                     };
 
                 } else if (response.status === 405) {
@@ -589,8 +614,6 @@
                 setTimeout(processAudioQueue, 2000); // Add a small delay before processing the next audio
             };
         }
-
-        // loadAndPlayAudio()
 
         // Initialize EventSource for real-time comments
         function initializeCommentStream() {
@@ -637,15 +660,19 @@
         const talkingAnimations = ['speak-emotion/Sena_Saotome_talk01_e16.bvh', 'speak-emotion/Sena_Saotome_talk02_e05.bvh', 
                                     'speak-emotion/Sena_Saotome_talk03_e03.bvh', 'speak-emotion/Sena_Saotome_talk04_e03.bvh', 
                                     'speak-emotion/Sena_Saotome_talk05_e01.bvh'];
-        const waitingAnimations = ['waiting-emotion/Sena_Saotome_idle01_e06.bvh', 'waiting-emotion/Sena_Saotome_idle02_e08.bvh'];
-        const cuteAnimations = ['cute-emotion/Sena_Saotome_Accent01_e11.bvh', 'cute-emotion/Sena_Saotome_Approach01_e01.bvh'];
+        const waitingAnimations = ['waiting-emotion/Sena_Saotome_idle01_e06.bvh', 'waiting-emotion/Sena_Saotome_idle02_e08.bvh', 
+                                    'cute-emotion/Sena_Saotome_Accent01_e11.bvh'];
+        // const cuteAnimations = ['cute-emotion/Sena_Saotome_Accent01_e11.bvh', 'cute-emotion/Sena_Saotome_Approach01_e01.bvh'];
 
-        // Function to get a random animation from an array
+        let emotionSwitchInterval;
+
+        // Function to get a random animation (for both talking and waiting emotions)
         function getRandomAnimation(animations) {
             const randomIndex = Math.floor(Math.random() * animations.length);
             return animations[randomIndex];
         }
 
+        // Function to apply talking emotion
         function applyTalkingEmotion() {
             if (currentVrm) {
                 const randomTalkingAnimation = getRandomAnimation(talkingAnimations);
@@ -654,6 +681,7 @@
             }
         }
 
+        // Function to apply waiting emotion
         function applyWaitingEmotion() {
             if (currentVrm) {
                 const randomWaitingAnimation = getRandomAnimation(waitingAnimations);
@@ -662,17 +690,37 @@
             }
         }
 
-        function applyCuteEmotion() {
-            if (currentVrm) {
-                const randomCuteAnimation = getRandomAnimation(cuteAnimations);
-                applyAnimation(randomCuteAnimation, 'cute');
-                console.log(`Applied cute emotion: ${randomCuteAnimation}`);
-            }
+        // Function to switch between emotions dynamically during speech
+        function switchEmotionsDuringSpeech() {
+            emotionSwitchInterval = setInterval(() => {
+                applyTalkingEmotion();  // Randomly switch to a different talking emotion
+            }, 3000); // Switch emotions every 3 seconds (adjust this interval as needed)
+        }
+
+        // Function to switch between emotions dynamically during waiting
+        function switchEmotionsDuringWaiting() {
+            emotionSwitchInterval = setInterval(() => {
+                applyWaitingEmotion();  // Randomly switch to a different waiting emotion
+            }, 5000); // Switch emotions every 5 seconds (adjust this interval as needed)
+        }
+
+        // Call this to start switching emotions during waiting/idle phase
+        function startIdleWaiting() {
+            switchEmotionsDuringWaiting();  // Start the waiting emotion switching
         }
 
 
+        // function applyCuteEmotion() {
+        //     if (currentVrm) {
+        //         const randomCuteAnimation = getRandomAnimation(cuteAnimations);
+        //         applyAnimation(randomCuteAnimation, 'cute');
+        //         console.log(`Applied cute emotion: ${randomCuteAnimation}`);
+        //     }
+        // }
 
 
+
+        // Function to load the VRM model
         loadVrm();
         function loadVrm() {
 
@@ -721,6 +769,7 @@
         }
         
 
+        // Function to simulate mouth movement when speaking
         function simulateSpeaking() {
             if (!currentVrm || !currentVrm.expressionManager) {
                 console.error("VRM or expression manager is not loaded.");
@@ -806,24 +855,17 @@
                 currentVrm.expressionManager.setValue(expressionName, 0);
             });
 
-            if (emotion === 'happy') {
-                applyCuteEmotion();
-                
-                // Apply the 'happy' emotion expression
-                currentVrm.expressionManager.setValue('relaxed', 1);  // Apply happy emotion
-
-                console.log("Applied happy emotion with mouth closed.");
+            
+            // Apply other emotions without mouth adjustment
+            if (emotions[emotion]) {
+                emotions[emotion].forEach(expressionName => {
+                    currentVrm.expressionManager.setValue(expressionName, 1);
+                });
+                console.log(`Applying emotion: ${emotion}`);
             } else {
-                // Apply other emotions without mouth adjustment
-                if (emotions[emotion]) {
-                    emotions[emotion].forEach(expressionName => {
-                        currentVrm.expressionManager.setValue(expressionName, 1);
-                    });
-                    console.log(`Applying emotion: ${emotion}`);
-                } else {
-                    console.error(`Emotion ${emotion} not found.`);
-                }
+                console.error(`Emotion ${emotion} not found.`);
             }
+            
         }
 
 
