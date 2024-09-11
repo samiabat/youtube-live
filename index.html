@@ -432,41 +432,67 @@
 
 
         // Function to start idle talking at regular intervals
-        function startIdleTalking() {
-            console.log("Applying happy emotion");
+        // function startIdleTalking() {
+        //     console.log("Applying happy emotion");
 
+        //     idleInterval = setInterval(async () => {
+        //         if (commentQueue.length === 0 && !isProcessingAudio) {
+        //             try {
+        //                 // Set flag to avoid overlapping messages
+        //                 isProcessingAudio = true;
+
+        //                 // Fetch idle message from the chatbot response
+        //                 const idleComment = "";  // Identifier for idle messages
+        //                 const username = ""; // Default username for idle mode
+
+        //                 let { text: idleMessage } = await getChatbotResponse(idleComment, username, 4);
+
+        //                 if (idleMessage) {
+        //                     console.log(`Idle message from chatbot: ${idleMessage}`);
+        //                     await generateSpeech(idleMessage);
+        //                 } else {
+        //                     console.error("No idle message received from the chatbot.");
+        //                 }
+
+        //                 // Reset flag after the speech finishes
+        //                 isProcessingAudio = false;
+
+        //             } catch (error) {
+        //                 console.error("Error fetching idle message from chatbot:", error);
+        //                 isProcessingAudio = false; // Ensure flag is reset on error
+        //             }
+        //         }
+        //     }, 11000); // Adjust the interval as needed
+        // }
+
+
+        // // Call this to start the idle talking when the app starts
+        // startIdleTalking();
+
+        // Idle talking functionality
+        function startIdleTalking() {
+            
+            console.log("aplying happy emotion")
             idleInterval = setInterval(async () => {
                 if (commentQueue.length === 0 && !isProcessingAudio) {
-                    try {
-                        // Set flag to avoid overlapping messages
-                        isProcessingAudio = true;
-
-                        // Fetch idle message from the chatbot response
-                        const idleComment = "";  // Identifier for idle messages
-                        const username = ""; // Default username for idle mode
-
-                        let { text: idleMessage } = await getChatbotResponse(idleComment, username, 4);
-
-                        if (idleMessage) {
-                            console.log(`Idle message from chatbot: ${idleMessage}`);
-                            await generateSpeech(idleMessage);
-                        } else {
-                            console.error("No idle message received from the chatbot.");
-                        }
-
-                        // Reset flag after the speech finishes
-                        isProcessingAudio = false;
-
-                    } catch (error) {
-                        console.error("Error fetching idle message from chatbot:", error);
-                        isProcessingAudio = false; // Ensure flag is reset on error
-                    }
+                    const idleMessages = [
+                        "私はまだここにいるよ",
+                        "コメント待ってるね！",
+                        "恥ずかしがらないで",
+                        "チャットしようよ！",
+                        "いつでもチャットしに来てね！",
+                        "何でも気軽に聞いてね！"
+                    ];
+                    const randomMessage = idleMessages[Math.floor(Math.random() * idleMessages.length)];
+                    await generateSpeech(randomMessage);
                 }
-            }, 11000); // Adjust the interval as needed
+            }, 11000); // Adjust the interval as needed (e.g., every 30 seconds)
         }
 
-
         // Call this to start the idle talking when the app starts
+        
+        
+        
         startIdleTalking();
 
         // playIntroAudio();
