@@ -307,6 +307,13 @@
             addCommentToBox(`${author}: ${message}`);
             commentQueue.push({ author, message, status });
             processAudioQueue(); // Start processing the queue if not already processing
+            // playAudio();
+        }
+
+        function handleIdleMessage(message){
+            commentQueue.push({ message });
+            processAudioQueue(); // Start processing the queue if not already processing
+            // playAudio();
         }
 
         const chatbotApiUrl = "http://18.176.84.155:5000/live";
@@ -353,7 +360,10 @@
             }
         }
 
-        // Play the intro audio for new users
+        // should  off the intro audio.
+
+        // instead have play audio function who can play this as well as other audio.
+
         async function playIntroAudio() {
             const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
 
@@ -385,7 +395,7 @@
         }
 
 
-        // Process the audio queue
+        // change this to play audio function
         async function processAudioQueue() {
             if (isProcessingAudio || commentQueue.length === 0) return;
 
@@ -431,7 +441,7 @@
 
 
 
-        // Function to start idle talking at regular intervals
+        // this function will be removed
         function startIdleTalking() {
             console.log("Applying happy emotion");
 
@@ -466,7 +476,7 @@
         }
 
 
-        // Call this to start the idle talking when the app starts
+        // remove this function
         startIdleTalking();
 
         // playIntroAudio();
@@ -517,7 +527,8 @@
 
 
 
-        // Function to generate speech from text using the speech API
+        // I should adjust. 
+
         async function generateSpeech(text) {
             const params = {
                 text: text,
@@ -701,7 +712,7 @@
         function switchEmotionsDuringWaiting() {
             emotionSwitchInterval = setInterval(() => {
                 applyWaitingEmotion();  // Randomly switch to a different waiting emotion
-            }, 5000); // Switch emotions every 5 seconds (adjust this interval as needed)
+            }, 3000); // Switch emotions every 5 seconds (adjust this interval as needed)
         }
 
         // Call this to start switching emotions during waiting/idle phase
@@ -710,17 +721,6 @@
         }
 
 
-        // function applyCuteEmotion() {
-        //     if (currentVrm) {
-        //         const randomCuteAnimation = getRandomAnimation(cuteAnimations);
-        //         applyAnimation(randomCuteAnimation, 'cute');
-        //         console.log(`Applied cute emotion: ${randomCuteAnimation}`);
-        //     }
-        // }
-
-
-
-        // Function to load the VRM model
         loadVrm();
         function loadVrm() {
 
