@@ -253,6 +253,35 @@
 
         const rightSide = document.getElementById('right-side');
         const renderer = new THREE.WebGLRenderer({ alpha: true });
+
+        const targetAspect = document.body.clientWidth / document.body.clientHeight;
+
+        const light = new THREE.DirectionalLight(0xffffff);
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        const commentBox = document.getElementById('comment-content');
+        const maxVisibleComments = 6; // Maximum number of visible comments
+
+        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+
+        const chatbotApiUrl = "http://18.176.84.155:5000/live";
+        const speechApiUrl = "http://13.114.188.215:5000/voice";
+
+        const listener = new THREE.AudioListener();
+        const sound = new THREE.Audio(listener);
+        const audioLoader = new THREE.AudioLoader();
+
+        // Arrays to store multiple animations for each emotion
+        const talkingAnimations = ['speak-emotion/Sena_Saotome_talk01_e16.bvh', 'speak-emotion/Sena_Saotome_talk02_e05.bvh', 
+                                    'speak-emotion/Sena_Saotome_talk03_e03.bvh', 'speak-emotion/Sena_Saotome_talk04_e03.bvh', 
+                                    'speak-emotion/Sena_Saotome_talk05_e01.bvh'];
+        const waitingAnimations = ['waiting-emotion/Sena_Saotome_idle01_e06.bvh', 'waiting-emotion/Sena_Saotome_idle02_e08.bvh', 
+                                    'cute-emotion/Sena_Saotome_Accent01_e11.bvh'];
+
+
+
+
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(rightSide.clientWidth, rightSide.clientHeight);
         rightSide.appendChild(renderer.domElement);
@@ -263,27 +292,261 @@
 
 
 
-        const targetAspect = document.body.clientWidth / document.body.clientHeight;
-
-        const light = new THREE.DirectionalLight(0xffffff);
+        
         light.position.set(-1, 1, -1).normalize();
         scene.add(light);
 
-        const canvas = document.createElement('canvas');
+        
         // canvas.width = 400; // Adjust size as needed
         // canvas.height = 512; // Adjust size as needed
-        const context = canvas.getContext('2d');
-
-        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        
         gradient.addColorStop(0, '#ff6f61'); // Start color (coral)
         gradient.addColorStop(1, '#ffb74d'); // End color (orange)
 
-        const commentBox = document.getElementById('comment-content');
-        const maxVisibleComments = 6; // Maximum number of visible comments
+        
         let commentQueue = []; // Queue for comments that need audio responses
+        let unreadMessageQueue = []; // Queue for comments that are not yet processed
         let isProcessingAudio = false; // Flag to indicate if audio is being processed
         let introducedUsers = new Set(); // Set to keep track of introduced users
         let idleInterval; // Interval to handle idle talking
+        let isPlaying = false;
+
+
+        // fetch comments from the api
+        async function fetchComments() {
+            const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
+
+            eventSource.onmessage = function(event) {
+                try {
+                    console.log('Raw data received:', event.data); // Log the raw data
+                    // Replace single quotes with double quotes to handle JSON format
+                    let formattedData = event.data
+                        .replace(/(\r\n|\n|\r)/gm, "")  // Remove any line breaks
+                        .replace(/'/g, '"'); 
+
+                    const commentData = JSON.parse(formattedData);
+
+                    // Extract author and message
+                    const author = commentData.author || 'Anonymous';
+                    const  message = commentData.message || '';
+                    const autherId = commentData.authorId || '';
+                    const status = commentData.status || '';
+
+        
+                    handleMessage(author, message, status, false);
+                    
+                } catch (error) {
+                    console.error('Error processing comment data:', error);
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.error('Error occurred:', event);
+                eventSource.close();
+            };
+            
+        }
+
+        let idleMessageInterval;
+
+        // Single function to handle both unread messages and idle messages
+        async function idleMessageHandler() {
+            if (unreadMessageQueue.length > 0) {
+                console.log(`New messages in the queue, processing messages... ${unreadMessageQueue}`);
+            } else if (!isPlaying) {
+                console.log('Queue is empty, fetching idle message...');
+                const idleComment = "";  // Identifier for idle messages
+                const username = "";     // Default username for idle mode
+
+                try {
+                    let { text: idleMessage } = await getChatbotResponse(idleComment, username, 4);
+
+                    if (idleMessage) {
+                        console.log(`Idle message from chatbot: ${idleMessage}`);
+                        unreadMessageQueue.push({ author: 'Chatbot', message: idleMessage, status: 'old' });
+                    } else {
+                        console.error("No idle message received from the chatbot.");
+                    }
+                } catch (error) {
+                    console.error("Error fetching idle message from chatbot:", error);
+                }
+            }
+        }
+
+        // Function to start the interval for idle messages
+        function startIdleMessageHandler() {
+            idleMessageInterval = setInterval(idleMessageHandler, 10000);  // Run every 10 seconds
+        }
+
+        fetchComments();
+
+        // Call this to start the idle message handling process
+        startIdleMessageHandler();
+
+
+        // handle message.
+        function handleMessage(author, message, status, isIdle) {
+            if (isIdle) {
+                // put in the unreadComment array 
+                unreadMessageQueue.push({ author, message, status });
+            } else {
+                // put the message in the unreadComment array and also display it to the screen. add the to the comment box or comment queue
+                // status is new or old
+                unreadMessageQueue.push({ author, message, status });
+                addCommentToBox(`${author}: ${message}`);
+                commentQueue.push({ author, message, status });
+            }
+            
+        }
+
+
+        // generate speech for comments
+        async function generateSpeech(text) {
+            const params = {
+                text: text,
+                model_id: 12,
+                speaker_name: "A-amazinGood",
+                speaker_id: 0,
+                sdp_ratio: 0.2,
+                noise: 0.6,
+                noisew: 0.8,
+                length: 1,
+                language: "JP",
+                auto_split: "true",
+                split_interval: 0.5,
+                assist_text_weight: 1,
+                style: "Neutral",
+                style_weight: 1,
+                pitch_scale: 1,
+                intonation_scale: 1
+            };
+
+            const queryString = new URLSearchParams(params).toString();
+            const requestUrl = `${speechApiUrl}?${queryString}`;
+
+            try {
+                const response = await fetch(requestUrl, { method: 'POST' });
+
+                if (response.ok) {
+                    const audioData = await response.arrayBuffer();
+                    console.log("Speech generated successfully. Playing audio...");
+
+                    return audioData;
+
+                    
+
+                } else if (response.status === 405) {
+                    console.log("Method not allowed, retrying in 60 seconds...");
+                    setTimeout(() => generateSpeech(text), 60000); // Retry after 60 seconds
+                } else {
+                    console.error("An unexpected error occurred:", response.statusText);
+                    return null;
+                }
+
+            } catch (error) {
+                return null;
+            }
+        }
+
+        // play audio
+
+        async function playAudio() {
+            if (isPlaying) {
+                console.log('Audio is already playing, skipping...');
+                return; // Prevent overlapping audio
+            } else {
+                console.log('The audio is not already playing');
+            }
+
+            while (unreadMessageQueue.length > 0) {
+                
+                console.log(`Unread message before the shift: ${unreadMessageQueue}`);
+                const { author, message, status } = unreadMessageQueue.shift(); // Get the next comment to process
+                console.log(`Unread message after the shift: ${unreadMessageQueue}`);
+                try {
+                    // Generate speech for the comment
+                    const audioData = await generateSpeech(message);
+
+                    if (audioData) {
+                        isPlaying = true;
+                        // Check if the user is new
+                        if (status === 'new') {
+                            // Play the intro audio for new users
+                            const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
+
+                            try {
+                                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                                const response = await fetch(introAudioUrl);
+                                const introAudioData = await response.arrayBuffer();
+                                const introBuffer = await audioContext.decodeAudioData(introAudioData);
+                                const introSource = audioContext.createBufferSource();
+                                introSource.buffer = introBuffer;
+                                introSource.connect(audioContext.destination);
+                                introSource.start(0);
+                                simulateSpeaking(); // Starts mouth animation
+                                switchEmotions('talking');
+                                
+
+                                console.log('Intro audio playing for new user.');
+
+                                // Ensure no overlap by waiting for the intro audio to finish
+                                await new Promise(resolve => {
+                                    introSource.onended = () => {
+                                        console.log('Intro audio finished.');
+                                        isPlaying = false;
+                                        switchEmotions('waiting');
+                                        stopMouthAnimation(); // Stops mouth animation after intro audio
+                                        resolve();
+                                    };
+                                });
+
+                                // Introduce a 10-second delay after the intro audio finishes
+                                stopMouthAnimation(); // Ensure mouth animation is stopped during the delay
+                                await new Promise(resolve => setTimeout(resolve, 10000));
+                                console.log('10 seconds later...');
+                                
+                            } catch (error) {
+                                isPlaying = false;
+                                console.error('Error playing intro audio:', error);
+                                stopMouthAnimation();
+                            }
+                        }
+                        isPlaying = true;
+                        // Play the generated speech after the intro and the 10-second delay
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        const buffer = await audioContext.decodeAudioData(audioData);
+                        const source = audioContext.createBufferSource();
+                        source.buffer = buffer;
+                        source.connect(audioContext.destination);
+                        source.start(0);
+                        
+                        simulateSpeaking(); // Starts mouth animation for generated speech
+                        switchEmotions('talking');
+
+                        // Ensure no overlap by waiting for the generated speech audio to finish
+                        await new Promise(resolve => {
+                            source.onended = () => {
+                                stopMouthAnimation(); // Stop mouth animation after the speech finishes
+                                switchEmotions('waiting');
+                                isPlaying = false;
+                                setTimeout(() => {
+                                    console.log('30 seconds later...');
+                                }, 30000); // 30-second delay for the next audio processing if needed
+                                resolve();
+                            };
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error processing the comment:', error);
+                    isPlaying = false;
+                    stopMouthAnimation(); // Ensure animation stops in case of error
+                    switchEmotions('waiting');
+                }
+            }
+        }
+
+        setInterval(playAudio, 20000); // Check for new comments every 20 seconds
+
 
         // Function to add comments to the box
         function addCommentToBox(commentText) {
@@ -301,23 +564,7 @@
             }
         }
 
-        // will queue the comment and process it when the audio is done
-        function handleNewComment(author, message, status) {
-            // Queue the comment
-            addCommentToBox(`${author}: ${message}`);
-            commentQueue.push({ author, message, status });
-            processAudioQueue(); // Start processing the queue if not already processing
-            // playAudio();
-        }
-
-        function handleIdleMessage(message){
-            commentQueue.push({ message });
-            processAudioQueue(); // Start processing the queue if not already processing
-            // playAudio();
-        }
-
-        const chatbotApiUrl = "http://18.176.84.155:5000/live";
-        const speechApiUrl = "http://13.114.188.215:5000/voice";
+        
 
         // get a response for comments from the chatbot
         async function getChatbotResponse(comment, username, id) {
@@ -360,347 +607,6 @@
             }
         }
 
-        // should  off the intro audio.
-
-        // instead have play audio function who can play this as well as other audio.
-
-        async function playIntroAudio() {
-            const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
-
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const response = await fetch(introAudioUrl);
-                const audioData = await response.arrayBuffer();
-                const buffer = await audioContext.decodeAudioData(audioData);
-                const source = audioContext.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioContext.destination);
-                source.start(0);
-                simulateSpeaking();
-                
-
-                console.log('Intro audio playing for new user.');
-
-                // Ensure no overlap by waiting for the audio to finish before proceeding
-                return new Promise(resolve => {
-                    source.onended = () => {
-                        stopMouthAnimation();
-                        console.log('Intro audio finished.');
-                        resolve();
-                    };
-                });
-            } catch (error) {
-                console.error('Error playing intro audio:', error);
-            }
-        }
-
-
-        // change this to play audio function
-        async function processAudioQueue() {
-            if (isProcessingAudio || commentQueue.length === 0) return;
-
-            isProcessingAudio = true;
-            const { author, message, status } = commentQueue.shift(); // Get the next comment to process
-
-            try {
-                let { text: chatbotResponse, emotion: emotionText } = await getChatbotResponse(message, author, 1);
-
-                const currentEmotion = {
-                    1: 'happy',      // Very happy
-                    2: 'relaxed',    // Happy
-                    3: 'neutral',    // Normal
-                    4: 'angry',      // Slightly confused
-                    5: 'sorrow'         // Sad
-                };
-
-                applyEmotion(currentEmotion[emotionText]);
-                console.log("emotion, ", currentEmotion[emotionText])
-                // Now you can use chatbotResponse and emotion
-                console.log(`Chatbot response: ${chatbotResponse}`);
-                // console.log(`Emotion: ${emotionText}`);
-
-                // Check if the user is new
-                if (!introducedUsers.has(author)) {
-                    // let introResponse = "失敗しても諦めにゃい！ドジっ子VTuber、猫姫ネロだにゃんっ！ ";
-                    // Play the intro audio for new users
-                    await playIntroAudio();
-
-                    introducedUsers.add(author); // Mark the user as introduced
-                }
-
-
-                if (chatbotResponse) {
-                    await generateSpeech(chatbotResponse);
-                }
-            } catch (error) {
-                console.error('Error processing the comment:', error);
-            }
-        }
-
-        
-
-
-
-        // Function to start idle talking at regular intervals
-        // function startIdleTalking() {
-        //     console.log("Applying happy emotion");
-
-        //     idleInterval = setInterval(async () => {
-        //         if (commentQueue.length === 0 && !isProcessingAudio) {
-        //             try {
-        //                 // Set flag to avoid overlapping messages
-        //                 isProcessingAudio = true;
-
-        //                 // Fetch idle message from the chatbot response
-        //                 const idleComment = "";  // Identifier for idle messages
-        //                 const username = ""; // Default username for idle mode
-
-        //                 let { text: idleMessage } = await getChatbotResponse(idleComment, username, 4);
-
-        //                 if (idleMessage) {
-        //                     console.log(`Idle message from chatbot: ${idleMessage}`);
-        //                     await generateSpeech(idleMessage);
-        //                 } else {
-        //                     console.error("No idle message received from the chatbot.");
-        //                 }
-
-        //                 // Reset flag after the speech finishes
-        //                 isProcessingAudio = false;
-
-        //             } catch (error) {
-        //                 console.error("Error fetching idle message from chatbot:", error);
-        //                 isProcessingAudio = false; // Ensure flag is reset on error
-        //             }
-        //         }
-        //     }, 11000); // Adjust the interval as needed
-        // }
-
-
-        // // Call this to start the idle talking when the app starts
-        // startIdleTalking();
-
-        // Idle talking functionality
-        function startIdleTalking() {
-            
-            console.log("aplying happy emotion")
-            idleInterval = setInterval(async () => {
-                if (commentQueue.length === 0 && !isProcessingAudio) {
-                    const idleMessages = [
-                        "私はまだここにいるよ",
-                        "コメント待ってるね！",
-                        "恥ずかしがらないで",
-                        "チャットしようよ！",
-                        "いつでもチャットしに来てね！",
-                        "何でも気軽に聞いてね！"
-                    ];
-                    const randomMessage = idleMessages[Math.floor(Math.random() * idleMessages.length)];
-                    await generateSpeech(randomMessage);
-                }
-            }, 11000); // Adjust the interval as needed (e.g., every 30 seconds)
-        }
-
-        // Call this to start the idle talking when the app starts
-        
-        
-        
-        startIdleTalking();
-
-        // playIntroAudio();
-        let isSpeaking = false;
-
-        // Make sure to clear the interval when the app stops, if necessary
-        window.addEventListener('beforeunload', () => {
-            clearInterval(idleInterval);
-        });
-
-
-        // Function to clear the current emotion and set it to neutral
-        function clearEmotion() {
-            if (!currentVrm || !currentVrm.expressionManager) {
-                console.error("VRM or expression manager is not loaded.");
-                return;
-            }
-
-            // Log message indicating that we're clearing the current emotion
-            console.log("Clearing current emotion");
-
-            // Reset all expressions explicitly to 0 instead of null
-            Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
-                if (currentVrm.expressionManager.getValue(expressionName) !== 0) {
-                    currentVrm.expressionManager.setValue(expressionName, 0); // Set all expressions to 0
-                }
-            });
-
-            // Force update to apply the reset changes
-            currentVrm.expressionManager.update();
-
-            // Verify the reset state by logging the current values of all expressions
-            Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
-                const currentValue = currentVrm.expressionManager.getValue(expressionName);
-            });
-
-            // Optionally, set the VRM model back to a neutral state
-            currentVrm.expressionManager.setValue("sad", 0);
-            currentVrm.expressionManager.setValue("happy", 0);
-            currentVrm.expressionManager.setValue("relaxed", 0);
-            currentVrm.expressionManager.setValue("sad", 0);
-            currentVrm.expressionManager.setValue("angry", 0);
-            currentVrm.expressionManager.setValue('neutral', 1); // 'neutral' can be changed to a suitable expression if available.
-            currentVrm.expressionManager.update();
-
-            console.log("Emotion cleared and set to neutral state.");
-        }
-
-
-
-        // I should adjust. 
-
-        async function generateSpeech(text) {
-            const params = {
-                text: text,
-                model_id: 12,
-                speaker_name: "A-amazinGood",
-                speaker_id: 0,
-                sdp_ratio: 0.2,
-                noise: 0.6,
-                noisew: 0.8,
-                length: 1,
-                language: "JP",
-                auto_split: "true",
-                split_interval: 0.5,
-                assist_text_weight: 1,
-                style: "Neutral",
-                style_weight: 1,
-                pitch_scale: 1,
-                intonation_scale: 1
-            };
-
-            const queryString = new URLSearchParams(params).toString();
-            const requestUrl = `${speechApiUrl}?${queryString}`;
-
-            try {
-                const response = await fetch(requestUrl, { method: 'POST' });
-
-                if (response.ok) {
-                    const audioData = await response.arrayBuffer();
-                    console.log("Speech generated successfully. Playing audio...");
-
-                    applyTalkingEmotion();  // Apply an initial talking emotion
-
-                    // Start switching emotions periodically during speech
-                    switchEmotionsDuringSpeech();
-
-                    // Convert the audio data to a playable format
-                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    const buffer = await audioContext.decodeAudioData(audioData);
-                    const source = audioContext.createBufferSource();
-                    source.buffer = buffer;
-                    source.connect(audioContext.destination);
-                    source.start(0);
-
-                    // Start mouth animation
-                    simulateSpeaking();
-
-                    // Stop mouth animation and emotion switching when audio ends
-                    source.onended = () => {
-                        stopMouthAnimation();
-                        console.log('Audio finished playing.');
-                        isProcessingAudio = false;
-                        processAudioQueue(); // Continue processing the queue
-
-                        // Stop switching emotions
-                        stopSwitchingEmotions();
-
-                        // Reset to idle/waiting emotion
-                        clearEmotion();
-                        switchEmotionsDuringWaiting(); // Start switching emotions during waiting
-                    };
-
-                } else if (response.status === 405) {
-                    console.log("Method not allowed, retrying in 60 seconds...");
-                    setTimeout(() => generateSpeech(text), 60000); // Retry after 60 seconds
-                } else {
-                    console.error("An unexpected error occurred:", response.statusText);
-                }
-
-            } catch (error) {
-                console.error('Error processing audio:', error);
-                isProcessingAudio = false;
-                processAudioQueue(); // Ensure queue processing continues even if an error occurs
-            }
-        }
-
-
-        const listener = new THREE.AudioListener();
-        camera.add(listener);
-
-        const sound = new THREE.Audio(listener);
-        const audioLoader = new THREE.AudioLoader();
-
-        // Function to load and play the audio
-        async function loadAndPlayAudio(audioData) {
-            const buffer = await audioContext.decodeAudioData(audioData);
-            sound.setBuffer(buffer);
-            sound.setLoop(false);
-            sound.setVolume(0.5);
-            sound.play();
-            
-            // When the audio finishes, process the next comment
-            sound.onEnded = function() {
-                console.log('Audio finished playing.');
-                setTimeout(processAudioQueue, 2000); // Add a small delay before processing the next audio
-            };
-        }
-
-        // Initialize EventSource for real-time comments
-        function initializeCommentStream() {
-            const eventSource = new EventSource('http://localhost:8000/stream-comments-only');
-
-            eventSource.onmessage = function(event) {
-                try {
-                    console.log('Raw data received:', event.data); // Log the raw data
-                    // Replace single quotes with double quotes to handle JSON format
-                    let formattedData = event.data
-                        .replace(/(\r\n|\n|\r)/gm, "")  // Remove any line breaks
-                        .replace(/'/g, '"'); 
-
-                    const commentData = JSON.parse(formattedData);
-
-                    // Extract author and message
-                    const author = commentData.author || 'Anonymous';
-                    const  message = commentData.message || '';
-                    const autherId = commentData.authorId || '';
-                    const status = commentData.status || '';
-
-                
-                    // Handle the new comment
-
-                    handleNewComment(author, message, status);
-                    
-                } catch (error) {
-                    console.error('Error processing comment data:', error);
-                }
-            };
-
-            eventSource.onerror = function(event) {
-                console.error('Error occurred:', event);
-                eventSource.close();
-            };
-        }
-
-        // Start the comment stream
-        initializeCommentStream();
-
-
-
-        // Arrays to store multiple animations for each emotion
-        const talkingAnimations = ['speak-emotion/Sena_Saotome_talk01_e16.bvh', 'speak-emotion/Sena_Saotome_talk02_e05.bvh', 
-                                    'speak-emotion/Sena_Saotome_talk03_e03.bvh', 'speak-emotion/Sena_Saotome_talk04_e03.bvh', 
-                                    'speak-emotion/Sena_Saotome_talk05_e01.bvh'];
-        const waitingAnimations = ['waiting-emotion/Sena_Saotome_idle01_e06.bvh', 'waiting-emotion/Sena_Saotome_idle02_e08.bvh', 
-                                    'cute-emotion/Sena_Saotome_Accent01_e11.bvh'];
-        // const cuteAnimations = ['cute-emotion/Sena_Saotome_Accent01_e11.bvh', 'cute-emotion/Sena_Saotome_Approach01_e01.bvh'];
-
         let emotionSwitchInterval;
 
         // Function to get a random animation (for both talking and waiting emotions)
@@ -709,42 +615,21 @@
             return animations[randomIndex];
         }
 
-        // Function to apply talking emotion
-        function applyTalkingEmotion() {
-            if (currentVrm) {
-                const randomTalkingAnimation = getRandomAnimation(talkingAnimations);
-                applyAnimation(randomTalkingAnimation, 'talking');
-                console.log(`Applied talking emotion: ${randomTalkingAnimation}`);
-            }
-        }
+        // Unified function to switch between emotions dynamically based on the type
+        function switchEmotions(type) {
+            const animations = type === 'talking' ? talkingAnimations : waitingAnimations;
 
-        // Function to apply waiting emotion
-        function applyWaitingEmotion() {
-            if (currentVrm) {
-                const randomWaitingAnimation = getRandomAnimation(waitingAnimations);
-                applyAnimation(randomWaitingAnimation, 'waiting');
-                console.log(`Applied waiting emotion: ${randomWaitingAnimation}`);
-            }
-        }
+            // Clear any existing interval to avoid overlap
+            clearInterval(emotionSwitchInterval);
 
-        // Function to switch between emotions dynamically during speech
-        function switchEmotionsDuringSpeech() {
+            // Start switching emotions based on the type (talking or waiting)
             emotionSwitchInterval = setInterval(() => {
-                applyTalkingEmotion();  // Randomly switch to a different talking emotion
+                const randomAnimation = getRandomAnimation(animations);
+                applyAnimation(randomAnimation, type);
+                console.log(`Applied ${type} emotion: ${randomAnimation}`);
             }, 3000); // Switch emotions every 3 seconds (adjust this interval as needed)
         }
 
-        // Function to switch between emotions dynamically during waiting
-        function switchEmotionsDuringWaiting() {
-            emotionSwitchInterval = setInterval(() => {
-                applyWaitingEmotion();  // Randomly switch to a different waiting emotion
-            }, 3000); // Switch emotions every 5 seconds (adjust this interval as needed)
-        }
-
-        // Call this to start switching emotions during waiting/idle phase
-        function startIdleWaiting() {
-            switchEmotionsDuringWaiting();  // Start the waiting emotion switching
-        }
 
 
         loadVrm();
@@ -773,15 +658,10 @@
                     vrm.scene.rotation.x = Math.PI / 36;
                     vrm.scene.scale.set(4.5, 2.3, 4.5); // Further increase the X and Z axes scale to widen the face more
 
-
-
-
-
-
                     joinSpringManager = vrm.springBoneManager;
 
                     if (currentVrm) {
-                        applyWaitingEmotion();
+                        switchEmotions('waiting');
                         
                     }
                       // Adjust the delay if needed
@@ -795,56 +675,58 @@
         }
         
 
-        // Function to simulate mouth movement when speaking
         function simulateSpeaking() {
-            if (!currentVrm || !currentVrm.expressionManager) {
-                console.error("VRM or expression manager is not loaded.");
-                return;
-            }
+    if (!currentVrm || !currentVrm.expressionManager) {
+        console.error("VRM or expression manager is not loaded.");
+        return;
+    }
 
-            
+    const vowelExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
+    let currentExpressionIndex = 0;
+    let intensity = 0;
+    let intensityDirection = 1;
+    let animationFrame;
 
-            const vowelExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
-            let currentExpressionIndex = 0;
-            let intensity = 0;
-            let intensityDirection = 1;
-
-            const updateExpression = () => {
-                if (!isSpeaking) return; // Stop updating if speaking has stopped
-
-                // Reset all expressions
-                Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
-                    currentVrm.expressionManager.setValue(expressionName, 0);
-                });
-
-                // Update the intensity of the current expression
-                const currentExpression = vowelExpressions[currentExpressionIndex];
-                intensity += 0.15 * intensityDirection;
-
-                // Check intensity bounds and adjust direction if necessary
-                if (intensity >= 1 || intensity <= 0) {
-                    intensityDirection *= -1;
-                    intensity = Math.max(0, Math.min(1, intensity)); // Clamp intensity between 0 and 1
-                }
-
-                // Set the current expression
-                currentVrm.expressionManager.setValue(currentExpression, intensity);
-
-                // Change expression when intensity closes
-                if (intensity <= 0) {
-                    currentExpressionIndex = (currentExpressionIndex + 1) % vowelExpressions.length;
-                }
-
-                // Continue the loop
-                setTimeout(updateExpression, 10); // Faster timing for more natural movement
-            };
-
-            isSpeaking = true; // Set speaking flag to true
-            updateExpression();
+    const updateExpression = () => {
+        if (!isPlaying) {
+            // Stop the animation if speaking has stopped
+            stopMouthAnimation();
+            return;
         }
 
+        // Reset all expressions to prevent blending issues
+        Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
+            currentVrm.expressionManager.setValue(expressionName, 0);
+        });
+
+        // Update the intensity of the current expression
+        const currentExpression = vowelExpressions[currentExpressionIndex];
+        intensity += 0.05 * intensityDirection; // Adjust intensity increment for smoother transitions
+
+        // Reverse intensity direction if bounds are reached
+        if (intensity >= 1 || intensity <= 0) {
+            intensityDirection *= -1;
+            intensity = Math.max(0, Math.min(1, intensity)); // Clamp intensity between 0 and 1
+        }
+
+        // Apply the current expression with the calculated intensity
+        currentVrm.expressionManager.setValue(currentExpression, intensity);
+
+        // Switch expression once intensity fades out
+        if (intensity <= 0) {
+            currentExpressionIndex = (currentExpressionIndex + 1) % vowelExpressions.length;
+        }
+
+        // Request the next frame for smooth animation
+        animationFrame = requestAnimationFrame(updateExpression);
+    };
+
+    // Start the expression update loop
+    updateExpression();
+}
+
+
         function stopMouthAnimation() {
-            isSpeaking = false;
 
             // Ensure all mouth-related expressions are reset to 0
             if (currentVrm && currentVrm.expressionManager) {
@@ -855,6 +737,10 @@
                 // After stopping, return to neutral emotion
             }
         }
+
+        setInterval(stopMouthAnimation, 10000);
+
+        
 
         
 
@@ -876,10 +762,19 @@
                 return;
             }
 
-            // Reset all expressions first
+            // Verify the reset state by logging the current values of all expressions
             Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
-                currentVrm.expressionManager.setValue(expressionName, 0);
+                const currentValue = currentVrm.expressionManager.getValue(expressionName);
             });
+
+            // Optionally, set the VRM model back to a neutral state
+            currentVrm.expressionManager.setValue("sad", 0);
+            currentVrm.expressionManager.setValue("happy", 0);
+            currentVrm.expressionManager.setValue("relaxed", 0);
+            currentVrm.expressionManager.setValue("sad", 0);
+            currentVrm.expressionManager.setValue("angry", 0);
+            currentVrm.expressionManager.setValue('neutral', 1); // 'neutral' can be changed to a suitable expression if available.
+            currentVrm.expressionManager.update();
 
             
             // Apply other emotions without mouth adjustment
