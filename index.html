@@ -109,7 +109,7 @@
 
         /* Each Comment Block */
         .comment {
-            display: flex;
+            display: inline-block;
             flex-direction: column;
             padding: 20px 30px;
             background-color: #384152; /* Semi-transparent white for comments */
@@ -131,6 +131,20 @@
                 opacity: 1;
                 transform: translateY(0);
             }
+        }
+
+        /* Author span should be inline and styled */
+        .author {
+            display: inline;
+            color: red; /* Pink for the author's name */
+            font-weight: bold;
+            margin-right: 5px; /* Adds space between the author and the message */
+        }
+
+        /* Message span should follow the author inline */
+        .message {
+            display: inline;
+            color: white;
         }
 
 
@@ -332,7 +346,8 @@
                 // put the message in the unreadComment array and also display it to the screen. add the to the comment box or comment queue
                 // status is new or old
                 unreadMessageQueue.push({ author, message, status });
-                addCommentToBox(`${author}: ${message}`);
+                addCommentToBox(author, message);
+
                 commentQueue.push({ author, message, status });
             }
             
@@ -482,22 +497,39 @@
 
         playAudio(); // Start the audio processing
         // Function to add comments to the box
-        function addCommentToBox(commentText) {
+        function addCommentToBox(author, message) {
             const comment = document.createElement('div');
             comment.className = 'comment';
-            comment.textContent = commentText;
 
-            // Add the new comment at the end
+            // Create spans for the author and message
+            const authorSpan = document.createElement('span');
+            authorSpan.className = 'author';
+            authorSpan.style.color = 'pink';  // Styling for the author
+            authorSpan.style.fontWeight = 'bold';
+            authorSpan.textContent = author + ": ";
+
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'message';
+            messageSpan.textContent = message;
+
+            // Append both spans to the comment div
+            comment.appendChild(authorSpan);
+            comment.appendChild(messageSpan);
+
+            // Append the new comment to the comment-content container
+            const commentBox = document.getElementById('comment-content');
             commentBox.appendChild(comment);
 
-            // Remove the oldest comment if the total exceeds maxVisibleComments
+            // Remove the oldest comment if necessary
             const comments = commentBox.querySelectorAll('.comment');
             if (comments.length > maxVisibleComments) {
-                commentBox.removeChild(comments[0]); // Remove the oldest comment (first in the list)
+                commentBox.removeChild(comments[0]); // Remove the first comment
             }
-        }
 
-        
+            // Scroll to the latest comment
+            commentBox.scrollTop = commentBox.scrollHeight;
+        }
+                
 
         // get a response for comments from the chatbot
         async function getChatbotResponse(comment, username, id) {
