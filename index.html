@@ -41,8 +41,8 @@
         /* Comment Box */
         #comment-box {
             width: 40%; /* Adjust the width as needed */
-            height: 70%; /* Adjust the height as needed */
-            background-color: rgba(0, 0, 0, 0.8); /* Dark background with transparency */
+            height: 58%; /* Adjust the height as needed */
+            background-color: #333333; /* Dark background with transparency */
             border-radius: 10px;
             padding: 20px;
             display: flex;
@@ -50,22 +50,23 @@
             overflow: hidden; /* Hide scrollbars */
             font-family: 'Roboto', sans-serif;
             color: white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
             position: relative; /* Ensure positioning is relative to the container */
         }
 
         /* Header Inside the Comment Box */
         #comment-header {
-            width: 100%;
-            padding: 15px;
-            font-size: 24px;
+            padding: 40px;
+            padding-bottom: 5px;
+            font-size: 38px;
             font-family: 'Noto Sans JP', sans-serif;
             font-weight: bold;
+            letter-spacing: 8px;
             text-align: center;
-            background: linear-gradient(45deg, #ff89a6, #ff005a); /* Gradient background */
+            background: #F471B5; /* Gradient background */
             color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            border-top-left-radius: 10px; /* Apply rounded corners to the top left */
+            border-top-right-radius: 10px; /* Apply rounded corners to the top right */
+            margin: -20px;
             margin-bottom: 10px; /* Space between header and the decorative section */
         }
 
@@ -90,83 +91,35 @@
             font-weight: bold;
         }
 
-        /* Extra Creative Element Section */
-        #extra-creative {
-            width: 100%;
-            height: 80px; /* Adjust as needed */
-            background: rgba(255, 255, 255, 0.2); /* Semi-transparent background */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 10px;
-            position: relative;
-        }
-
-        /* Content for the Extra Creative Section */
-        #extra-creative-content {
-            font-size: 20px;
-            color: #ffeb3b; /* Bright yellow */
-            text-align: center;
-            line-height: 1.4;
-            font-weight: bold;
-        }
-
-        /* Artistic Horizontal Line */
-        #horizontal-line {
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(to right, transparent, #ffffff, transparent);
-            margin: 20px 0; /* Space around the line */
-            position: absolute;
-            top: 45%; /* Position at the middle of the comment box */
-            left: 0;
-            transform: translateY(-50%); /* Center the line vertically */
-        }
-
         /* Live Comments Section Below the Line */
         #comment-content {
             display: flex;
             flex-direction: column;
             gap: 10px; /* Spacing between comments */
             overflow-y: auto; /* Scrollable */
-            padding-top: 60px; /* Space for the comments to be visible */
-            padding-bottom: 10px; /* Space for the bottom text */
             position: absolute;
-            top: 43%; /* Start below the horizontal line */
+            top: 17%; /* Start below the horizontal line */
             left: 0;
             right: 0;
             bottom: 0;
             overflow: auto;
             box-sizing: border-box;
+            padding: 20px;
         }
 
         /* Each Comment Block */
         .comment {
             display: flex;
             flex-direction: column;
-            padding: 8px 10px;
-            background-color: rgba(255, 255, 255, 0.1); /* Semi-transparent white for comments */
+            padding: 20px 30px;
+            background-color: #384152; /* Semi-transparent white for comments */
             border-radius: 5px;
             animation: fade-in 0.5s ease-in-out;
-            font-size: 14px;
+            font-size: 20px;
             overflow: hidden; /* Hide overflow */
             font-family: 'Arial', sans-serif;
         }
 
-        /* Username Styling */
-        .comment .username {
-            font-weight: bold;
-            font-size: 15px;
-            color: #ffd700; /* Gold color for the username */
-        }
-
-        /* Comment Text Styling */
-        .comment .message {
-            font-size: 14px;
-            color: #ffffff;
-            margin-top: 2px;
-        }
 
         /* Smooth Fade-in Animation for New Comments */
         @keyframes fade-in {
@@ -199,24 +152,9 @@
 
     <div id="comment-box">
         <!-- Header Inside the Comment Box -->
-        <div id="comment-header">Live Chat • Igarashi Stream</div>
+        <div id="comment-header">AI Tuberネロによる雑談配信</div>
     
-        <!-- Decorative Section Above the Line -->
-        <div id="decorative-section">
-            <div id="decorative-text">Welcome to the Stream!</div>
-        </div>
-    
-        <!-- Extra Creative Element Section -->
-        <div id="extra-creative">
-            <div id="extra-creative-content">
-                🎉 Enjoy the Show! 🎊<br>
-                ここで盛り上がろう！<br> <!-- Japanese Text for Excitement -->
-                Comments from the user! 💬
-            </div>
-        </div>
 
-        <!-- Artistic Horizontal Line in the Middle -->
-        <div id="horizontal-line"></div>
     
         <!-- Comment Content Below the Line -->
         <div id="comment-content"></div>
@@ -226,6 +164,7 @@
     
     <div id="right-side">
     </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
 
     <script type="module">
@@ -462,99 +401,84 @@
             if (isPlaying) {
                 console.log('Audio is already playing, skipping...');
                 return; // Prevent overlapping audio
-            } else {
-                console.log('The audio is not already playing');
             }
 
-            while (unreadMessageQueue.length > 0) {
-                console.log(`Unread message before the shift: ${unreadMessageQueue}`);
-                const { author, message, status } = unreadMessageQueue.shift(); // Get the next comment to process
-                console.log(`Unread message after the shift: ${unreadMessageQueue}`);
-
-                try {
-                    // Generate speech for the comment
-                    const { audioData, duration } = await generateSpeech(message);
-
-                    if (audioData) {
-                        isPlaying = true;
-
-                        // Check if the user is new and play intro audio first
-                        if (status === 'new') {
-                            const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
-                            try {
-                                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                                const response = await fetch(introAudioUrl);
-                                const introAudioData = await response.arrayBuffer();
-                                const introBuffer = await audioContext.decodeAudioData(introAudioData);
-                                const introSource = audioContext.createBufferSource();
-                                introSource.buffer = introBuffer;
-                                introSource.connect(audioContext.destination);
-                                introSource.start(0);
-
-                                simulateSpeaking(); // Start mouth animation
-                                switchEmotions('talking');
-
-                                console.log('Intro audio playing for new user.');
-
-                                // Wait for the intro audio to finish
-                                await new Promise(resolve => {
-                                    introSource.onended = () => {
-                                        console.log('Intro audio finished.');
-                                        stopMouthAnimation(); // Stop mouth animation
-                                        switchEmotions('waiting');
-                                        resolve();
-                                    };
-                                });
-
-                                // Optional delay after the intro audio finishes
-                                await new Promise(resolve => setTimeout(resolve, 10000)); // 10 seconds delay
-                                console.log('10 seconds later...');
-                            } catch (error) {
-                                console.error('Error playing intro audio:', error);
-                                stopMouthAnimation();
-                                isPlaying = false;
-                            }
-                        }
-
-                        // Play the generated speech after the intro (if applicable)
-                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        const buffer = await audioContext.decodeAudioData(audioData);
-                        const source = audioContext.createBufferSource();
-                        source.buffer = buffer;
-                        source.connect(audioContext.destination);
-                        source.start(0);
-
-                        simulateSpeaking(); // Start mouth animation for generated speech
-                        switchEmotions('talking');
-
-                        // Wait for the generated speech audio to finish
-                        await new Promise(resolve => {
-                            source.onended = () => {
-                                stopMouthAnimation(); // Stop mouth animation
-                                switchEmotions('waiting');
-                                isPlaying = false;
-                                resolve();
-                            };
-                        });
-
-                        // Set interval to the duration of the current audio
-                        const delay = duration * 1000; // Convert seconds to milliseconds
-                        setTimeout(playAudio, delay); // Call the next audio processing after the current one finishes
-                    }
-                } catch (error) {
-                    console.error('Error processing the comment:', error);
-                    isPlaying = false;
-                    stopMouthAnimation(); // Ensure animation stops in case of error
-                    switchEmotions('waiting');
-                }
-            }
-
-            // If no more messages, wait for the next call to playAudio
             if (unreadMessageQueue.length === 0) {
                 console.log('No unread messages, checking again in 10 seconds');
                 setTimeout(playAudio, 10000); // Retry checking after 10 seconds if there are no unread messages
+                return;
+            }
+
+            // Get the next comment to process
+            const { author, message, status } = unreadMessageQueue.shift();
+            console.log(`Processing message from: ${author}, status: ${status}`);
+
+            try {
+                // Generate speech for the comment
+                const { audioData, duration } = await generateSpeech(message);
+
+                if (audioData) {
+                    isPlaying = true;
+                    simulateSpeaking(); // Start mouth animation
+                    switchEmotions('talking');
+
+                    // Check if the user is new and play intro audio first
+                    if (status === 'new') {
+                        const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
+                        try {
+                            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                            const response = await fetch(introAudioUrl);
+                            const introAudioData = await response.arrayBuffer();
+                            const introBuffer = await audioContext.decodeAudioData(introAudioData);
+                            const introSource = audioContext.createBufferSource();
+                            introSource.buffer = introBuffer;
+                            introSource.connect(audioContext.destination);
+                            introSource.start(0);
+
+                            console.log('Intro audio playing for new user.');
+
+                            // Wait for the intro audio to finish
+                            await new Promise(resolve => {
+                                introSource.onended = () => {
+                                    console.log('Intro audio finished.');
+                                    resolve();
+                                };
+                            });
+                        } catch (error) {
+                            console.error('Error playing intro audio:', error);
+                        }
+                    }
+
+                    // Play the generated speech after the intro (if applicable)
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const buffer = await audioContext.decodeAudioData(audioData);
+                    const source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioContext.destination);
+                    source.start(0);
+
+                    // Wait for the generated speech audio to finish
+                    await new Promise(resolve => {
+                        source.onended = () => {
+                            stopMouthAnimation(); // Stop mouth animation
+                            switchEmotions('waiting');
+                            isPlaying = false;
+                            resolve();
+                        };
+                    });
+
+                    // After the audio finishes, check for the next message
+                    playAudio();
+                }
+            } catch (error) {
+                console.error('Error processing the comment:', error);
+                isPlaying = false;
+                stopMouthAnimation(); // Ensure animation stops in case of error
+                switchEmotions('waiting');
+                playAudio(); // Retry the next audio processing after an error
             }
         }
+
 
         playAudio(); // Start the audio processing
         // Function to add comments to the box
