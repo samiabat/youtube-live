@@ -429,27 +429,35 @@
 
                 if (response.ok) {
                     const audioData = await response.arrayBuffer();
-                    console.log("Speech generated successfully. Playing audio...");
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-                    return audioData;
+                    // Clone the ArrayBuffer if you intend to use it more than once
+                    const clonedBuffer = audioData.slice(0); // Ensure you don't reuse the original ArrayBuffer
 
-                    
+                    const buffer = await audioContext.decodeAudioData(clonedBuffer);
+
+                    const duration = buffer.duration; // Get the duration from the decoded audio data
+
+                    console.log("Speech generated successfully. Duration:", duration);
+
+                    return { audioData, duration };
 
                 } else if (response.status === 405) {
                     console.log("Method not allowed, retrying in 60 seconds...");
                     setTimeout(() => generateSpeech(text), 60000); // Retry after 60 seconds
                 } else {
                     console.error("An unexpected error occurred:", response.statusText);
-                    return null;
+                    return { audioData: null, duration: 0 }; // Return 0 sec duration on failure
                 }
 
             } catch (error) {
-                return null;
+                console.error("Error fetching or decoding audio data:", error);
+                return { audioData: null, duration: 0 }; // Return 0 sec duration on error
             }
         }
 
-        // play audio
 
+        // Function to play audio and dynamically adjust the interval
         async function playAudio() {
             if (isPlaying) {
                 console.log('Audio is already playing, skipping...');
@@ -459,21 +467,20 @@
             }
 
             while (unreadMessageQueue.length > 0) {
-                
                 console.log(`Unread message before the shift: ${unreadMessageQueue}`);
                 const { author, message, status } = unreadMessageQueue.shift(); // Get the next comment to process
                 console.log(`Unread message after the shift: ${unreadMessageQueue}`);
+
                 try {
                     // Generate speech for the comment
-                    const audioData = await generateSpeech(message);
+                    const { audioData, duration } = await generateSpeech(message);
 
                     if (audioData) {
                         isPlaying = true;
-                        // Check if the user is new
-                        if (status === 'new') {
-                            // Play the intro audio for new users
-                            const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
 
+                        // Check if the user is new and play intro audio first
+                        if (status === 'new') {
+                            const introAudioUrl = 'intro.wav'; // Replace with the actual path to the intro audio file
                             try {
                                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                                 const response = await fetch(introAudioUrl);
@@ -483,58 +490,56 @@
                                 introSource.buffer = introBuffer;
                                 introSource.connect(audioContext.destination);
                                 introSource.start(0);
-                                simulateSpeaking(); // Starts mouth animation
+
+                                simulateSpeaking(); // Start mouth animation
                                 switchEmotions('talking');
-                                
 
                                 console.log('Intro audio playing for new user.');
 
-                                // Ensure no overlap by waiting for the intro audio to finish
+                                // Wait for the intro audio to finish
                                 await new Promise(resolve => {
                                     introSource.onended = () => {
                                         console.log('Intro audio finished.');
-                                        isPlaying = false;
+                                        stopMouthAnimation(); // Stop mouth animation
                                         switchEmotions('waiting');
-                                        stopMouthAnimation(); // Stops mouth animation after intro audio
                                         resolve();
                                     };
                                 });
 
-                                // Introduce a 10-second delay after the intro audio finishes
-                                stopMouthAnimation(); // Ensure mouth animation is stopped during the delay
-                                await new Promise(resolve => setTimeout(resolve, 10000));
+                                // Optional delay after the intro audio finishes
+                                await new Promise(resolve => setTimeout(resolve, 10000)); // 10 seconds delay
                                 console.log('10 seconds later...');
-                                
                             } catch (error) {
-                                isPlaying = false;
                                 console.error('Error playing intro audio:', error);
                                 stopMouthAnimation();
+                                isPlaying = false;
                             }
                         }
-                        isPlaying = true;
-                        // Play the generated speech after the intro and the 10-second delay
+
+                        // Play the generated speech after the intro (if applicable)
                         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                         const buffer = await audioContext.decodeAudioData(audioData);
                         const source = audioContext.createBufferSource();
                         source.buffer = buffer;
                         source.connect(audioContext.destination);
                         source.start(0);
-                        
-                        simulateSpeaking(); // Starts mouth animation for generated speech
+
+                        simulateSpeaking(); // Start mouth animation for generated speech
                         switchEmotions('talking');
 
-                        // Ensure no overlap by waiting for the generated speech audio to finish
+                        // Wait for the generated speech audio to finish
                         await new Promise(resolve => {
                             source.onended = () => {
-                                stopMouthAnimation(); // Stop mouth animation after the speech finishes
+                                stopMouthAnimation(); // Stop mouth animation
                                 switchEmotions('waiting');
                                 isPlaying = false;
-                                setTimeout(() => {
-                                    console.log('30 seconds later...');
-                                }, 30000); // 30-second delay for the next audio processing if needed
                                 resolve();
                             };
                         });
+
+                        // Set interval to the duration of the current audio
+                        const delay = duration * 1000; // Convert seconds to milliseconds
+                        setTimeout(playAudio, delay); // Call the next audio processing after the current one finishes
                     }
                 } catch (error) {
                     console.error('Error processing the comment:', error);
@@ -543,11 +548,15 @@
                     switchEmotions('waiting');
                 }
             }
+
+            // If no more messages, wait for the next call to playAudio
+            if (unreadMessageQueue.length === 0) {
+                console.log('No unread messages, checking again in 10 seconds');
+                setTimeout(playAudio, 10000); // Retry checking after 10 seconds if there are no unread messages
+            }
         }
 
-        setInterval(playAudio, 20000); // Check for new comments every 20 seconds
-
-
+        playAudio(); // Start the audio processing
         // Function to add comments to the box
         function addCommentToBox(commentText) {
             const comment = document.createElement('div');
@@ -676,54 +685,56 @@
         
 
         function simulateSpeaking() {
-    if (!currentVrm || !currentVrm.expressionManager) {
-        console.error("VRM or expression manager is not loaded.");
-        return;
-    }
+            if (!currentVrm || !currentVrm.expressionManager) {
+                console.error("VRM or expression manager is not loaded.");
+                return;
+            }
 
-    const vowelExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
-    let currentExpressionIndex = 0;
-    let intensity = 0;
-    let intensityDirection = 1;
-    let animationFrame;
+            const vowelExpressions = ['aa', 'ih', 'ee', 'ou', 'oh'];
+            let currentExpressionIndex = 0;
+            let intensity = 0;
+            let intensityDirection = 1;
+            let animationFrame;
 
-    const updateExpression = () => {
-        if (!isPlaying) {
-            // Stop the animation if speaking has stopped
-            stopMouthAnimation();
-            return;
+            const updateExpression = () => {
+                if (!isPlaying) {
+                    // Stop the animation if speaking has stopped
+                    stopMouthAnimation();
+                    return;
+                }
+
+                // Reset all expressions to prevent blending issues
+                Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
+                    currentVrm.expressionManager.setValue(expressionName, 0);
+                });
+
+                // Increase intensity change speed to make the mouth animation faster
+                const intensityChangeRate = 0.15; // Increased from 0.05 to 0.15 for faster transitions
+                intensity += intensityChangeRate * intensityDirection;
+
+                // Reverse intensity direction if bounds are reached
+                if (intensity >= 1 || intensity <= 0) {
+                    intensityDirection *= -1;
+                    intensity = Math.max(0, Math.min(1, intensity)); // Clamp intensity between 0 and 1
+                }
+
+                // Apply the current expression with the calculated intensity
+                const currentExpression = vowelExpressions[currentExpressionIndex];
+                currentVrm.expressionManager.setValue(currentExpression, intensity);
+
+                // Switch to the next expression when intensity fades out
+                if (intensity <= 0) {
+                    currentExpressionIndex = (currentExpressionIndex + 1) % vowelExpressions.length;
+                }
+
+                // Request the next frame for smoother animation
+                animationFrame = requestAnimationFrame(updateExpression);
+            };
+
+            // Start the expression update loop
+            updateExpression();
         }
 
-        // Reset all expressions to prevent blending issues
-        Object.keys(currentVrm.expressionManager.expressions).forEach(expressionName => {
-            currentVrm.expressionManager.setValue(expressionName, 0);
-        });
-
-        // Update the intensity of the current expression
-        const currentExpression = vowelExpressions[currentExpressionIndex];
-        intensity += 0.05 * intensityDirection; // Adjust intensity increment for smoother transitions
-
-        // Reverse intensity direction if bounds are reached
-        if (intensity >= 1 || intensity <= 0) {
-            intensityDirection *= -1;
-            intensity = Math.max(0, Math.min(1, intensity)); // Clamp intensity between 0 and 1
-        }
-
-        // Apply the current expression with the calculated intensity
-        currentVrm.expressionManager.setValue(currentExpression, intensity);
-
-        // Switch expression once intensity fades out
-        if (intensity <= 0) {
-            currentExpressionIndex = (currentExpressionIndex + 1) % vowelExpressions.length;
-        }
-
-        // Request the next frame for smooth animation
-        animationFrame = requestAnimationFrame(updateExpression);
-    };
-
-    // Start the expression update loop
-    updateExpression();
-}
 
 
         function stopMouthAnimation() {
