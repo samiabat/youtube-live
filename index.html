@@ -428,9 +428,15 @@
             const { author, message, status } = unreadMessageQueue.shift();
             console.log(`Processing message from: ${author}, status: ${status}`);
 
+            const chatbotResponse = await getChatbotResponse(message, author, 1);
+
+            console.log(`Chatbot response for ${author}: ${chatbotResponse.text}`);
+
             try {
                 // Generate speech for the comment
-                const { audioData, duration } = await generateSpeech(message);
+                
+                const { audioData, duration } = await generateSpeech(chatbotResponse.text);
+
 
                 if (audioData) {
                     isPlaying = true;
